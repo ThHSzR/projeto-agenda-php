@@ -31,9 +31,13 @@
     <p id="erro"></p>
   </div>
   <script>
-    // Se já está logado, vai direto
-    fetch('/api/me', { credentials: 'same-origin' })
-      .then(r => { if (r.ok) location.href = '/src/index.html'; });
+    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const API_BASE  = isLocal ? '/agenda/api'          : '/api';
+    const HOME_URL  = isLocal ? '/agenda/src/index.html' : '/src/index.html';
+
+    // Se já está logado, redireciona direto
+    fetch(`${API_BASE}/me`, { credentials: 'same-origin' })
+      .then(r => { if (r.ok) location.href = HOME_URL; });
 
     async function logar() {
       const usuario = document.getElementById('usuario').value.trim();
@@ -47,7 +51,7 @@
         return;
       }
 
-      const res = await fetch('/api/login', {
+      const res = await fetch(`${API_BASE}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
@@ -56,7 +60,7 @@
 
       const data = await res.json();
       if (res.ok) {
-        location.href = '/src/index.html';
+        location.href = HOME_URL;
       } else {
         erro.textContent = data.erro || 'Erro ao fazer login.';
         erro.style.display = 'block';
