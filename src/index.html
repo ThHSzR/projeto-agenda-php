@@ -5,49 +5,438 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Agenda</title>
-  <link rel="icon" type="image/png" href="./logo.png" />
   <link rel="stylesheet" href="./css/style.css" />
-  <!-- Flatpickr -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
 </head>
 
 <body>
   <div id="app">
-    <!-- Sidebar -->
+
     <aside id="sidebar">
-      <div class="sidebar-header">
-        <img src="./logo.png" alt="Logo" class="logo" />
+      <div class="brand">
+        <img src="./logo.png" alt="Beauty & Beauty" class="sidebar-logo">
       </div>
       <nav>
-        <button class="nav-btn active" data-page="calendario">📅 Calendário</button>
-        <button class="nav-btn" data-page="agendamentos">📋 Agendamentos</button>
-        <button class="nav-btn" data-page="clientes">👤 Clientes</button>
-        <button class="nav-btn gerente-only hidden" data-page="procedimentos">💆 Procedimentos</button>
-        <button class="nav-btn gerente-only hidden" data-page="financeiro">💰 Financeiro</button>
-        <button class="nav-btn admin-only hidden" data-page="usuarios">⚙️ Usuários</button>
+        <a class="nav-link active" data-page="calendario"><span class="icon">📅</span> Calendário</a>
+        <a class="nav-link" data-page="agendamentos"><span class="icon">📋</span> Agendamentos</a>
+        <a class="nav-link" data-page="clientes"><span class="icon">👤</span> Clientes</a>
+        <a class="nav-link" data-page="procedimentos"><span class="icon">💆</span> Procedimentos</a>
+        <a class="nav-link" data-page="financeiro"><span class="icon">💰</span> Financeiro</a>
       </nav>
-      <div class="sidebar-footer">
-        <span id="usuario-logado"></span>
-        <button id="btn-logout">Sair</button>
-      </div>
     </aside>
 
-    <!-- Conteúdo principal -->
-    <main id="main-content"></main>
+    <main id="content">
+      <div id="page-calendario" class="page"></div>
+      <div id="page-agendamentos" class="page hidden"></div>
+      <div id="page-clientes" class="page hidden"></div>
+      <div id="page-procedimentos" class="page hidden"></div>
+      <div id="page-financeiro" class="page hidden"></div>
+    </main>
   </div>
 
-  <!-- Scripts -->
+  <div id="toast-container"></div>
+
+<!-- ═══ MODAL AGENDAMENTO ═══ -->
+<div id="modal-agendamento" class="modal-overlay hidden">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2 id="modal-agend-title">Novo Agendamento</h2>
+      <button class="modal-close" onclick="fecharModal('modal-agendamento')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="agend-id" />
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Cliente *</label>
+          <select id="agend-cliente"></select>
+        </div>
+        <div class="form-group">
+          <label>Data e Hora *</label>
+          <input type="datetime-local" id="agend-data-hora" />
+        </div>
+      </div>
+
+      <!-- Lista de procedimentos do agendamento -->
+      <div class="form-group">
+        <label>Procedimentos *</label>
+        <div id="agend-procs-lista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
+        <button class="btn btn-secondary btn-sm" onclick="_agendAdicionarProc()">+ Adicionar procedimento</button>
+      </div>
+
+      <!-- Totais calculados -->
+      <div style="display:flex;gap:24px;padding:10px 14px;background:var(--color-surface-offset);border-radius:var(--radius-md);margin-bottom:12px">
+        <span>⏱ Duração total: <strong id="agend-total-duracao">0 min</strong></span>
+        <span>💰 Valor total: <strong id="agend-total-valor">R$ 0,00</strong></span>
+      </div>
+
+      <!-- Valor editável só por gerente/admin -->
+      <div class="form-row">
+        <div class="form-group">
+          <label id="agend-valor-label">Valor cobrado (R$)</label>
+          <input type="number" id="agend-valor" step="0.01" min="0" />
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="agend-status">
+            <option value="agendado">Agendado</option>
+            <option value="concluido">Concluído</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Observações</label>
+        <textarea id="agend-obs" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center">
+      <button id="agend-whatsapp-btn" class="btn btn-whatsapp" style="display:none"
+        onclick="_agendWhatsApp()">💬 Confirmar via WhatsApp</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary" onclick="fecharModal('modal-agendamento')">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarAgendamento()">💾 Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- ═══ MODAL CLIENTE (Ficha de Anamnese) ═══ -->
+  <div id="modal-cliente" class="modal-overlay hidden">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h2 id="modal-cliente-title">Nova Ficha de Anamnese</h2>
+        <button class="modal-close" onclick="fecharModal('modal-cliente')">✕</button>
+      </div>
+      <div class="modal-body" style="min-height:480px">
+        <input type="hidden" id="cli-id" />
+
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTab('tab-dados',this)">📋 Dados Pessoais</button>
+          <button class="tab-btn" onclick="switchTab('tab-proc',this)">💆 Procedimentos</button>
+          <button class="tab-btn" onclick="switchTab('tab-saude',this)">🏥 Saúde</button>
+          <button class="tab-btn" onclick="switchTab('tab-fisico',this)">🧬 Físico / Pele</button>
+        </div>
+
+        <!-- ABA 1 — DADOS PESSOAIS -->
+        <div id="tab-dados" class="tab-content" style="min-height:420px">
+          <div class="form-row">
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Nome Completo *</label>
+              <input type="text" id="cli-nome" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Data de Nascimento</label>
+              <input type="date" id="cli-nasc" />
+            </div>
+            <div class="form-group">
+              <label>CPF *</label>
+              <input type="text" id="cli-cpf" placeholder="000.000.000-00" maxlength="14" required
+                oninput="formatarCPF(this)" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Telefone / WhatsApp *</label>
+              <input type="tel" id="cli-telefone" placeholder="(00) 00000-0000" maxlength="15" required
+                oninput="formatarTelefone(this)" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Endereço</label>
+              <input type="text" id="cli-endereco" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Cidade</label>
+              <input type="text" id="cli-cidade" />
+            </div>
+            <div class="form-group" style="max-width:100px">
+              <label>UF</label>
+              <input type="text" id="cli-uf" maxlength="2" placeholder="GO" />
+            </div>
+          </div>
+        </div>
+
+        <!-- ABA 2 — PROCEDIMENTOS -->
+        <div id="tab-proc" class="tab-content hidden" style="min-height:420px">
+          <p class="section-label">Procedimentos de interesse</p>
+          <div id="cli-proc-interesse-list" class="check-group" style="flex-wrap:wrap;gap:10px">
+            <!-- preenchido via JS -->
+          </div>
+        </div>
+
+        <!-- ABA 3 — SAÚDE -->
+        <div id="tab-saude" class="tab-content hidden" style="min-height:420px">
+          <div class="anamnese-row">
+            <span>Medicamento em uso?</span>
+            <label><input type="radio" name="r-med" value="1" /> Sim</label>
+            <label><input type="radio" name="r-med" value="0" checked /> Não</label>
+            <input type="text" id="cli-med-qual" placeholder="Qual?" class="inline-input" />
+          </div>
+          <div class="anamnese-row">
+            <span>Roacutan?</span>
+            <label><input type="radio" name="r-roac" value="1" /> Sim</label>
+            <label><input type="radio" name="r-roac" value="0" checked /> Não</label>
+            <span style="margin-left:12px">Tto. Vitiligo?</span>
+            <label><input type="radio" name="r-vitil" value="1" /> Sim</label>
+            <label><input type="radio" name="r-vitil" value="0" checked /> Não</label>
+          </div>
+          <div class="anamnese-row">
+            <span>Alergia a medicamento?</span>
+            <label><input type="radio" name="r-alergia" value="1" /> Sim</label>
+            <label><input type="radio" name="r-alergia" value="0" checked /> Não</label>
+            <input type="text" id="cli-alergia-qual" placeholder="Qual?" class="inline-input" />
+          </div>
+          <div class="anamnese-row">
+            <span>Tratamento dermato/estético?</span>
+            <label><input type="radio" name="r-derm" value="1" /> Sim</label>
+            <label><input type="radio" name="r-derm" value="0" checked /> Não</label>
+            <input type="text" id="cli-derm-qual" placeholder="Qual?" class="inline-input" />
+            <span style="margin-left:8px">Ácidos?</span>
+            <label><input type="radio" name="r-acidos" value="1" /> Sim</label>
+            <label><input type="radio" name="r-acidos" value="0" checked /> Não</label>
+          </div>
+          <div class="anamnese-row">
+            <span>Já fez cirurgia?</span>
+            <label><input type="radio" name="r-cir" value="1" /> Sim</label>
+            <label><input type="radio" name="r-cir" value="0" checked /> Não</label>
+            <input type="text" id="cli-cir-qual" placeholder="Qual?" class="inline-input" />
+          </div>
+          <div class="anamnese-row">
+            <span>Anticoncepcional?</span>
+            <label><input type="radio" name="r-anti" value="1" /> Sim</label>
+            <label><input type="radio" name="r-anti" value="0" checked /> Não</label>
+            <input type="text" id="cli-anti-qual" placeholder="Especifique" class="inline-input" />
+          </div>
+          <div class="anamnese-row">
+            <span>Histórico oncológico?</span>
+            <label><input type="radio" name="r-onco" value="1" /> Sim</label>
+            <label><input type="radio" name="r-onco" value="0" checked /> Não</label>
+            <input type="text" id="cli-onco-qual" placeholder="Qual?" class="inline-input" />
+          </div>
+          <div class="anamnese-row">
+            <span>Acompanhamento médico?</span>
+            <label><input type="radio" name="r-acomp" value="1" /> Sim</label>
+            <label><input type="radio" name="r-acomp" value="0" checked /> Não</label>
+            <input type="text" id="cli-acomp-qual" placeholder="Qual?" class="inline-input" />
+          </div>
+          <div class="anamnese-row">
+            <span>Epilepsia?</span>
+            <label><input type="radio" name="r-epil" value="1" /> Sim</label>
+            <label><input type="radio" name="r-epil" value="0" checked /> Não</label>
+          </div>
+          <div class="anamnese-row">
+            <span>Alteração hormonal?</span>
+            <label><input type="radio" name="r-horm" value="1" /> Sim</label>
+            <label><input type="radio" name="r-horm" value="0" checked /> Não</label>
+            <input type="text" id="cli-horm-qual" placeholder="Qual?" class="inline-input" />
+            <span style="margin-left:8px">Hirsutismo?</span>
+            <label><input type="radio" name="r-hirsu" value="1" /> Sim</label>
+            <label><input type="radio" name="r-hirsu" value="0" checked /> Não</label>
+          </div>
+          <div class="anamnese-row">
+            <span>Gestante?</span>
+            <label><input type="radio" name="r-gest" value="1" /> Sim</label>
+            <label><input type="radio" name="r-gest" value="0" checked /> Não</label>
+            <span style="margin-left:10px">Lactante?</span>
+            <label><input type="radio" name="r-lact" value="1" /> Sim</label>
+            <label><input type="radio" name="r-lact" value="0" checked /> Não</label>
+            <span style="margin-left:10px">Herpes?</span>
+            <label><input type="radio" name="r-herpes" value="1" /> Sim</label>
+            <label><input type="radio" name="r-herpes" value="0" checked /> Não</label>
+          </div>
+          <div class="form-group" style="margin-top:14px">
+            <label>Observações gerais</label>
+            <textarea id="cli-obs" rows="3"></textarea>
+          </div>
+        </div>
+
+        <!-- ABA 4 — FÍSICO / PELE -->
+        <div id="tab-fisico" class="tab-content hidden" style="min-height:420px">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Cor dos olhos</label>
+              <select id="cli-olhos">
+                <option value="">Selecione</option>
+                <option>Castanhos</option>
+                <option>Pretos</option>
+                <option>Verdes</option>
+                <option>Azuis</option>
+                <option>Mel</option>
+                <option>Cinzas</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Cor dos cabelos</label>
+              <select id="cli-cabelos">
+                <option value="">Selecione</option>
+                <option>Pretos</option>
+                <option>Castanho escuro</option>
+                <option>Castanho claro</option>
+                <option>Loiros</option>
+                <option>Ruivos</option>
+                <option>Grisalhos</option>
+                <option>Brancos</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Cor dos pelos</label>
+              <select id="cli-pelos">
+                <option value="">Selecione</option>
+                <option>Negros</option>
+                <option>Castanhos</option>
+                <option>Loiros</option>
+                <option>Ruivos</option>
+                <option>Grisalhos</option>
+                <option>Brancos/Finos</option>
+              </select>
+            </div>
+          </div>
+          <div class="anamnese-row" style="margin-top:8px">
+            <span>Tomou sol nos últimos 30 dias?</span>
+            <label><input type="radio" name="r-sol" value="1" /> Sim</label>
+            <label><input type="radio" name="r-sol" value="0" checked /> Não</label>
+            <input type="text" id="cli-sol-quando" placeholder="Quando?" class="inline-input" />
+          </div>
+
+          <!-- Fitzpatrick — aparece condicionalmente se algum proc com is_laser=1 estiver marcado -->
+          <div id="cli-fitz-section" class="hidden">
+            <div class="form-group" style="margin-top:20px">
+              <label>Classificação Fitzpatrick — Como sua pele reage ao sol?</label>
+              <div class="fitzpatrick-grid">
+                <label class="fitz-option"><input type="radio" name="r-fitz" value="1" /> <span><strong>Tipo I</strong>
+                    — Sempre queima, nunca bronzeia</span></label>
+                <label class="fitz-option"><input type="radio" name="r-fitz" value="2" /> <span><strong>Tipo II</strong>
+                    — Sempre queima, bronzeia com dificuldade</span></label>
+                <label class="fitz-option"><input type="radio" name="r-fitz" value="3" /> <span><strong>Tipo
+                      III</strong> — Às vezes queima, sempre bronzeia</span></label>
+                <label class="fitz-option"><input type="radio" name="r-fitz" value="4" /> <span><strong>Tipo IV</strong>
+                    — Raramente queima, bronzeia facilmente</span></label>
+                <label class="fitz-option"><input type="radio" name="r-fitz" value="5" /> <span><strong>Tipo V</strong>
+                    — Queima muito raramente, bronzeia muito facilmente</span></label>
+                <label class="fitz-option"><input type="radio" name="r-fitz" value="6" /> <span><strong>Tipo VI</strong>
+                    — Nunca queima, bronzeia muito facilmente</span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="fecharModal('modal-cliente')">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarCliente()">💾 Salvar Ficha</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL PROCEDIMENTO ═══ -->
+  <div id="modal-procedimento" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-proc-title">Novo Procedimento</h2>
+        <button class="modal-close" onclick="fecharModal('modal-procedimento')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="proc-id" />
+        <div class="form-group">
+          <label>Nome *</label>
+          <input type="text" id="proc-nome" />
+        </div>
+        <div class="form-group">
+          <label>Descrição</label>
+          <input type="text" id="proc-desc" />
+        </div>
+        <div class="check-group" style="margin-bottom:12px;gap:20px">
+          <label>
+            <input type="checkbox" id="proc-tem-variantes" onchange="_toggleVariantes()" />
+            Possui variantes (preços/durações diferentes)
+          </label>
+        </div>
+
+        <!-- sem variantes -->
+        <div id="proc-campos-fixos" class="form-row">
+          <div class="form-group">
+            <label>Duração (min)</label>
+            <input type="number" id="proc-duracao" value="60" min="1" />
+          </div>
+          <div class="form-group">
+            <label>Valor (R$)</label>
+            <input type="number" id="proc-valor" step="0.01" min="0" />
+          </div>
+        </div>
+
+        <!-- com variantes -->
+        <div id="proc-campos-variantes" class="hidden">
+          <p class="section-label">Variantes</p>
+          <table style="margin-bottom:12px">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Descrição</th>
+                <th>Duração</th>
+                <th>Valor</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="variantes-tbody"></tbody>
+          </table>
+          <div style="background:var(--color-surface-offset);border-radius:var(--radius-md);padding:12px">
+            <p class="section-label" style="margin-bottom:8px">Adicionar / Editar variante</p>
+            <input type="hidden" id="var-idx" />
+            <div class="form-row">
+              <div class="form-group">
+                <label>Nome *</label>
+                <input type="text" id="var-nome" placeholder="Ex: Perna Inteira" />
+              </div>
+              <div class="form-group">
+                <label>Descrição</label>
+                <input type="text" id="var-desc" placeholder="Opcional" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Duração (min)</label>
+                <input type="number" id="var-dur" value="30" min="1" />
+              </div>
+              <div class="form-group">
+                <label>Valor (R$)</label>
+                <input type="number" id="var-valor" step="0.01" min="0" />
+              </div>
+              <div class="form-group" style="align-self:flex-end">
+                <button class="btn btn-primary" onclick="_adicionarOuEditarVariante()">+ Confirmar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="fecharModal('modal-procedimento')">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarProcedimento()">💾 Salvar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="./js/utils.js"></script>
   <script src="./js/api.js"></script>
+  <script src="./js/calendario.js"></script>
   <script src="./js/clientes.js"></script>
   <script src="./js/procedimentos.js"></script>
   <script src="./js/agendamentos.js"></script>
   <script src="./js/financeiro.js"></script>
+  <!-- adicione ANTES de app.js -->
   <script src="./js/usuarios.js"></script>
-  <script src="./js/calendario.js"></script>
   <script src="./js/app.js"></script>
+  <script>
+    (async () => {
+      const res = await fetch('/api/me', { credentials: 'same-origin' });
+      if (!res.ok) window.location.href = '/login.html';
+    })();
+  </script>
 </body>
 
 </html>
