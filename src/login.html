@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Login — Agenda</title>
+  <link rel="icon" type="image/png" href="./logo.png"/>
+  <link rel="stylesheet" href="./css/style.css"/>
+</head>
+<body class="login-page">
+  <div class="login-box">
+    <img src="./logo.png" alt="Logo" class="logo-login"/>
+    <h2>Entrar</h2>
+    <form id="form-login">
+      <label>Usuário
+        <input type="text" id="inp-usuario" autocomplete="username" required/>
+      </label>
+      <label>Senha
+        <input type="password" id="inp-senha" autocomplete="current-password" required/>
+      </label>
+      <p id="erro-login" class="erro hidden"></p>
+      <button type="submit" class="btn btn-primary">Entrar</button>
+    </form>
+  </div>
+  <script src="./js/api.js"></script>
+  <script>
+    // Redireciona se já estiver logado
+    window.api.auth.me()
+      .then(r => { if (r && r.usuario) location.href = '/src/index.html'; });
+
+    document.getElementById('form-login').addEventListener('submit', async e => {
+      e.preventDefault();
+      const usuario = document.getElementById('inp-usuario').value.trim();
+      const senha   = document.getElementById('inp-senha').value;
+      const erro    = document.getElementById('erro-login');
+      erro.classList.add('hidden');
+      const res = await window.api.auth.login(usuario, senha);
+      if (res && res.ok) {
+        location.href = '/src/index.html';
+      } else {
+        erro.textContent = res?.erro || 'Erro ao fazer login';
+        erro.classList.remove('hidden');
+      }
+    });
+  </script>
+</body>
+</html>
