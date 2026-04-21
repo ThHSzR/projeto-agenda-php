@@ -1,11 +1,6 @@
-// api.js — detecta ambiente local (subpasta /agenda) vs produção (raiz)
-const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? '/agenda/api'
+const _BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? '/projeto-agenda-php/api'
     : '/api';
-
-const LOGIN_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? '/agenda/src/login.html'
-    : '/src/login.html';
 
 const api = {
     async _fetch(method, url, body) {
@@ -15,66 +10,69 @@ const api = {
             credentials: 'same-origin'
         };
         if (body !== undefined) opts.body = JSON.stringify(body);
-        const res = await fetch(url, opts);
+        const res = await fetch(_BASE + url, opts);
         if (res.status === 401) {
-            window.location.href = LOGIN_URL;
+            const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            window.location.href = isLocal
+                ? '/projeto-agenda-php/src/login.html'
+                : '/src/login.html';
             return;
         }
         return res.json();
     },
 
     auth: {
-        login:  (usuario, senha) => api._fetch('POST', `${API_BASE}/login`, { usuario, senha }),
-        logout: () => api._fetch('POST', `${API_BASE}/logout`),
-        me:     () => api._fetch('GET',  `${API_BASE}/me`),
+        login:  (usuario, senha) => api._fetch('POST', '/login', { usuario, senha }),
+        logout: () => api._fetch('POST', '/logout'),
+        me:     () => api._fetch('GET', '/me'),
     },
     usuarios: {
-        listar:      () => api._fetch('GET',    `${API_BASE}/usuarios`),
-        criar:       (d) => api._fetch('POST',  `${API_BASE}/usuarios`, d),
-        trocarSenha: (id, senha) => api._fetch('PATCH',  `${API_BASE}/usuarios/${id}/senha`, { senha }),
-        excluir:     (id) => api._fetch('DELETE', `${API_BASE}/usuarios/${id}`),
+        listar:      () => api._fetch('GET', '/usuarios'),
+        criar:       (d) => api._fetch('POST', '/usuarios', d),
+        trocarSenha: (id, senha) => api._fetch('PATCH', `/usuarios/${id}/senha`, { senha }),
+        excluir:     (id) => api._fetch('DELETE', `/usuarios/${id}`),
     },
     clientes: {
-        listar: ()    => api._fetch('GET',    `${API_BASE}/clientes`),
-        buscar: (id)  => api._fetch('GET',    `${API_BASE}/clientes/${id}`),
-        salvar: (d)   => api._fetch('POST',   `${API_BASE}/clientes`, d),
-        excluir:(id)  => api._fetch('DELETE', `${API_BASE}/clientes/${id}`),
+        listar:  () => api._fetch('GET', '/clientes'),
+        buscar:  (id) => api._fetch('GET', `/clientes/${id}`),
+        salvar:  (dados) => api._fetch('POST', '/clientes', dados),
+        excluir: (id) => api._fetch('DELETE', `/clientes/${id}`),
     },
     procedimentos: {
-        listar: ()    => api._fetch('GET',    `${API_BASE}/procedimentos`),
-        todos:  ()    => api._fetch('GET',    `${API_BASE}/procedimentos?todos=1`),
-        salvar: (d)   => api._fetch('POST',   `${API_BASE}/procedimentos`, d),
-        excluir:(id)  => api._fetch('DELETE', `${API_BASE}/procedimentos/${id}`),
+        listar:  () => api._fetch('GET', '/procedimentos'),
+        todos:   () => api._fetch('GET', '/procedimentos?todos=1'),
+        salvar:  (d) => api._fetch('POST', '/procedimentos', d),
+        excluir: (id) => api._fetch('DELETE', `/procedimentos/${id}`),
     },
     variantes: {
-        listar: (procId) => api._fetch('GET',    `${API_BASE}/variantes/${procId}`),
-        salvar: (d)      => api._fetch('POST',   `${API_BASE}/variantes`, d),
-        excluir:(id)     => api._fetch('DELETE', `${API_BASE}/variantes/${id}`),
+        listar:  (procId) => api._fetch('GET', `/variantes/${procId}`),
+        salvar:  (d) => api._fetch('POST', '/variantes', d),
+        excluir: (id) => api._fetch('DELETE', `/variantes/${id}`),
     },
     agendamentos: {
         listar: (filtro) => {
             const p = new URLSearchParams();
-            if (filtro?.data)        p.set('data',        filtro.data);
+            if (filtro?.data)        p.set('data', filtro.data);
             if (filtro?.data_inicio) p.set('data_inicio', filtro.data_inicio);
-            if (filtro?.data_fim)    p.set('data_fim',    filtro.data_fim);
-            return api._fetch('GET', `${API_BASE}/agendamentos?` + p.toString());
+            if (filtro?.data_fim)    p.set('data_fim', filtro.data_fim);
+            return api._fetch('GET', '/agendamentos?' + p.toString());
         },
-        buscar: (id)    => api._fetch('GET',    `${API_BASE}/agendamentos/${id}`),
-        salvar: (d)     => api._fetch('POST',   `${API_BASE}/agendamentos`, d),
-        excluir:(id)    => api._fetch('DELETE', `${API_BASE}/agendamentos/${id}`),
-        status: ({ id, status }) => api._fetch('PATCH', `${API_BASE}/agendamentos/${id}/status`, { status }),
+        buscar:  (id) => api._fetch('GET', `/agendamentos/${id}`),
+        salvar:  (dados) => api._fetch('POST', '/agendamentos', dados),
+        excluir: (id) => api._fetch('DELETE', `/agendamentos/${id}`),
+        status:  ({ id, status }) => api._fetch('PATCH', `/agendamentos/${id}/status`, { status }),
     },
     financeiro: {
-        resumo:    (f) => api._fetch('GET', `${API_BASE}/financeiro/resumo?inicio=${f.inicio}&fim=${f.fim}`),
-        detalhado: (f) => api._fetch('GET', `${API_BASE}/financeiro/detalhado?inicio=${f.inicio}&fim=${f.fim}`),
+        resumo:    (f) => api._fetch('GET', `/financeiro/resumo?inicio=${f.inicio}&fim=${f.fim}`),
+        detalhado: (f) => api._fetch('GET', `/financeiro/detalhado?inicio=${f.inicio}&fim=${f.fim}`),
     },
     clienteProc: {
-        getInteresse:    (id) => api._fetch('GET',  `${API_BASE}/cliente-proc/${id}`),
-        salvarInteresse: (p)  => api._fetch('POST', `${API_BASE}/cliente-proc`, p),
+        getInteresse:    (id) => api._fetch('GET', `/cliente-proc/${id}`),
+        salvarInteresse: (p)  => api._fetch('POST', '/cliente-proc', p),
     },
     clienteVariantes: {
-        getInteresse:    (id) => api._fetch('GET',  `${API_BASE}/cliente-variantes/${id}`),
-        salvarInteresse: (p)  => api._fetch('POST', `${API_BASE}/cliente-variantes`, p),
+        getInteresse:    (id) => api._fetch('GET', `/cliente-variantes/${id}`),
+        salvarInteresse: (p)  => api._fetch('POST', '/cliente-variantes', p),
     },
 };
 
