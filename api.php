@@ -17,10 +17,9 @@ logApp('info', '── REQUISIÇÃO ──', [
     'ip'      => $_SERVER['REMOTE_ADDR'],
     'session' => session_id(),
     'logado'  => $_SESSION['logado'] ?? false,
-    'cookies' => array_keys($_COOKIE),
 ]);
 
-// Lê o body UMA única vez e guarda na variável global
+// Lê o body UMA única vez
 $_rawBody = file_get_contents('php://input');
 if ($_rawBody) {
     $_bodyLog = json_decode($_rawBody, true) ?? [];
@@ -29,7 +28,10 @@ if ($_rawBody) {
 }
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
-header('Access-Control-Allow-Origin: *');
+// Em produção, substitua '*' pelo domínio real (ex: 'https://suaagenda.com.br')
+$allowedOrigin = $_SERVER['HTTP_ORIGIN'] ?? '*';
+header('Access-Control-Allow-Origin: ' . $allowedOrigin);
+header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET,POST,PATCH,DELETE,OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
@@ -42,7 +44,6 @@ function json_out($data, int $code = 200): void {
     exit;
 }
 
-// Usa o $_rawBody já lido acima — evita leitura dupla de php://input
 function body(): array {
     global $_rawBody;
     return json_decode($_rawBody ?? '', true) ?? [];
@@ -83,31 +84,20 @@ $parts = explode('/', $route);
 
 // ── AUTH ─────────────────────────────────────────────────────────────────────
 if ($route === 'login' && $method === 'POST') {
-    logApp('info', 'Tentativa de login iniciada');
-
     $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-    if (!check_rate_limit($ip)) {
-        logApp('warn', 'Rate limit atingido', ['ip' => $ip]);
+    if (!check_rate_limit($ip))
         json_out(['erro' => 'Muitas tentativas. Aguarde 15 minutos.'], 429);
-    }
 
     $b       = body();
     $usuario = trim($b['usuario'] ?? '');
     $senha   = $b['senha'] ?? '';
 
-    logApp('info', 'Dados recebidos no login', ['usuario' => $usuario, 'senha_vazia' => empty($senha)]);
-
-    if (!$usuario || !$senha) {
-        logApp('warn', 'Login sem usuario ou senha');
+    if (!$usuario || !$senha)
         json_out(['erro' => 'Preencha usuário e senha'], 400);
-    }
 
     try {
-        $db = getDb();
-        logApp('info', 'Conexão com DB OK');
-
+        $db    = getDb();
         $total = $db->query('SELECT COUNT(*) FROM usuarios')->fetchColumn();
-        logApp('info', 'Total de usuarios no banco', ['total' => $total]);
 
         if ($total == 0) {
             $hash = password_hash('admin123', PASSWORD_BCRYPT);
@@ -120,23 +110,8 @@ if ($route === 'login' && $method === 'POST') {
         $stmt->execute([$usuario]);
         $user = $stmt->fetch();
 
-        logApp('info', 'Busca por usuario', ['encontrado' => (bool)$user]);
-
-        if (!$user) {
-            logApp('warn', 'Usuario nao encontrado', ['usuario' => $usuario]);
-            json_out(['erro' => 'Usuário ou senha incorretos'], 401);
-        }
-
-        $senhaOk = password_verify($senha, $user['senha']);
-        logApp('info', 'Verificacao de senha', [
-            'usuario'  => $usuario,
-            'hash_len' => strlen($user['senha']),
-            'hash_ini' => substr($user['senha'], 0, 7),
-            'senha_ok' => $senhaOk,
-        ]);
-
-        if (!$senhaOk) {
-            logApp('warn', 'Senha incorreta', ['usuario' => $usuario]);
+        if (!$user || !password_verify($senha, $user['senha'])) {
+            logApp('warn', 'Login inválido', ['usuario' => $usuario]);
             json_out(['erro' => 'Usuário ou senha incorretos'], 401);
         }
 
@@ -146,17 +121,22 @@ if ($route === 'login' && $method === 'POST') {
         $_SESSION['is_admin'] = (bool)$user['is_admin'];
         $_SESSION['cargo']    = $user['cargo'] ?? 'operador';
 
-        logApp('info', 'Login bem-sucedido', ['usuario' => $usuario, 'session_id' => session_id()]);
+        logApp('info', 'Login bem-sucedido', ['usuario' => $usuario]);
         json_out(['ok' => true, 'is_admin' => (bool)$user['is_admin'], 'cargo' => $_SESSION['cargo']]);
 
     } catch (Exception $e) {
-        logApp('error', 'Excecao no login', ['msg' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+        logApp('error', 'Exceção no login', ['msg' => $e->getMessage()]);
         json_out(['erro' => 'Erro interno'], 500);
     }
 }
 
 if ($route === 'logout' && $method === 'POST') {
     auth_required();
+    $_SESSION = [];
+    if (ini_get('session.use_cookies')) {
+        $p = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
+    }
     session_destroy();
     json_out(['ok' => true]);
 }
@@ -246,10 +226,11 @@ if ($parts[0] === 'clientes') {
             'tomou_sol','sol_quando','fitzpatrick','termo_assinado','observacoes'
         ];
         $vals = array_map(fn($f) => $d[$f] ?? null, $fields);
-        $idx  = array_search('data_nascimento', $fields);
+        // Garante que data_nascimento vazia vira NULL (evita erro de conversão no MySQL)
+        $idx = array_search('data_nascimento', $fields);
         if ($idx !== false && empty($vals[$idx])) $vals[$idx] = null;
         if (!empty($d['id'])) {
-            $set  = implode(',', array_map(fn($f) => "$f = ?", $fields));
+            $set = implode(',', array_map(fn($f) => "$f = ?", $fields));
             $db->prepare("UPDATE clientes SET $set WHERE id = ?")->execute([...$vals, (int)$d['id']]);
             json_out(['id' => (int)$d['id']]);
         } else {
@@ -285,7 +266,8 @@ if ($parts[0] === 'procedimentos') {
             json_out(['id' => (int)$d['id']]);
         } else {
             $db->prepare('INSERT INTO procedimentos (nome,descricao,duracao_min,valor,is_laser,tem_variantes) VALUES (?,?,?,?,?,?)')
-               ->execute([$d['nome'], $d['descricao'] ?? null, $d['duracao_min'] ?? 60, $d['valor'] ?? 0, $d['is_laser'] ?? 0, $d['tem_variantes'] ?? 0]);
+               ->execute([$d['nome'], $d['descricao'] ?? null, $d['duracao_min'] ?? 60, $d['valor'] ?? 0,
+                           $d['is_laser'] ?? 0, $d['tem_variantes'] ?? 0]);
             json_out(['id' => $db->lastInsertId()]);
         }
     }
@@ -310,11 +292,13 @@ if ($parts[0] === 'variantes') {
         $d = body();
         if (!empty($d['id'])) {
             $db->prepare('UPDATE procedimento_variantes SET nome=?,descricao=?,duracao_min=?,valor=?,ativo=? WHERE id=?')
-               ->execute([$d['nome'], $d['descricao'] ?? null, $d['duracao_min'] ?? 30, $d['valor'] ?? 0, $d['ativo'] ?? 1, (int)$d['id']]);
+               ->execute([$d['nome'], $d['descricao'] ?? null, $d['duracao_min'] ?? 30,
+                           $d['valor'] ?? 0, $d['ativo'] ?? 1, (int)$d['id']]);
             json_out(['id' => (int)$d['id']]);
         } else {
             $db->prepare('INSERT INTO procedimento_variantes (procedimento_id,nome,descricao,duracao_min,valor) VALUES (?,?,?,?,?)')
-               ->execute([$d['procedimento_id'], $d['nome'], $d['descricao'] ?? null, $d['duracao_min'] ?? 30, $d['valor'] ?? 0]);
+               ->execute([$d['procedimento_id'], $d['nome'], $d['descricao'] ?? null,
+                           $d['duracao_min'] ?? 30, $d['valor'] ?? 0]);
             json_out(['id' => $db->lastInsertId()]);
         }
     }
@@ -329,6 +313,8 @@ if ($parts[0] === 'variantes') {
 if ($parts[0] === 'agendamentos') {
     auth_required();
     $db = getDb();
+
+    // GET /agendamentos — lista com filtros opcionais
     if ($method === 'GET' && count($parts) === 1) {
         $sql    = 'SELECT a.*, c.nome as cliente_nome, c.telefone as cliente_telefone,
                           p.nome as procedimento_nome, v.nome as variante_nome
@@ -349,6 +335,8 @@ if ($parts[0] === 'agendamentos') {
         $s->execute($params);
         json_out($s->fetchAll());
     }
+
+    // GET /agendamentos/:id — busca com procedimentos
     if ($method === 'GET' && count($parts) === 2) {
         $s = $db->prepare(
             'SELECT a.*, c.nome as cliente_nome, c.telefone as cliente_telefone,
@@ -374,35 +362,76 @@ if ($parts[0] === 'agendamentos') {
         $agend['procs'] = $ps->fetchAll();
         json_out($agend);
     }
+
+    // POST /agendamentos — criar ou atualizar (com TRANSAÇÃO)
     if ($method === 'POST' && count($parts) === 1) {
         $d      = body();
         $procs  = is_array($d['procs'] ?? null) ? $d['procs'] : [];
         $somaV  = array_sum(array_column($procs, 'valor'));
         $isGer  = !empty($_SESSION['is_admin']) || ($_SESSION['cargo'] ?? '') === 'gerente';
-        $valorF = ($isGer && isset($d['valor_cobrado'])) ? (float)$d['valor_cobrado'] : $somaV;
-        if (!empty($d['id'])) {
-            $db->prepare('UPDATE agendamentos SET cliente_id=?,data_hora=?,status=?,valor_cobrado=?,observacoes=?,
-                          procedimento_id=NULL,variante_id=NULL WHERE id=?')
-               ->execute([$d['cliente_id'], $d['data_hora'], $d['status'] ?? 'agendado', $valorF, $d['observacoes'] ?? null, (int)$d['id']]);
-            $agendId = (int)$d['id'];
-        } else {
-            $db->prepare('INSERT INTO agendamentos (cliente_id,data_hora,status,valor_cobrado,observacoes) VALUES (?,?,?,?,?)')
-               ->execute([$d['cliente_id'], $d['data_hora'], $d['status'] ?? 'agendado', $valorF, $d['observacoes'] ?? null]);
-            $agendId = (int)$db->lastInsertId();
+        $valorF = ($isGer && isset($d['valor_cobrado'])) ? (float)$d['valor_cobrado'] : (float)$somaV;
+
+        try {
+            $db->beginTransaction();
+
+            if (!empty($d['id'])) {
+                $db->prepare(
+                    'UPDATE agendamentos
+                     SET cliente_id=?, data_hora=?, status=?, valor_cobrado=?, observacoes=?,
+                         procedimento_id=NULL, variante_id=NULL
+                     WHERE id=?'
+                )->execute([$d['cliente_id'], $d['data_hora'], $d['status'] ?? 'agendado',
+                             $valorF, $d['observacoes'] ?? null, (int)$d['id']]);
+                $agendId = (int)$d['id'];
+            } else {
+                $db->prepare(
+                    'INSERT INTO agendamentos (cliente_id, data_hora, status, valor_cobrado, observacoes)
+                     VALUES (?,?,?,?,?)'
+                )->execute([$d['cliente_id'], $d['data_hora'], $d['status'] ?? 'agendado',
+                             $valorF, $d['observacoes'] ?? null]);
+                $agendId = (int)$db->lastInsertId();
+            }
+
+            // Recria lista de procedimentos do agendamento
+            $db->prepare('DELETE FROM agendamento_procedimentos WHERE agendamento_id = ?')
+               ->execute([$agendId]);
+
+            $ins = $db->prepare(
+                'INSERT INTO agendamento_procedimentos
+                 (agendamento_id, procedimento_id, variante_id, valor, duracao_min)
+                 VALUES (?,?,?,?,?)'
+            );
+            foreach ($procs as $p) {
+                $ins->execute([
+                    $agendId,
+                    (int)$p['procedimento_id'],
+                    isset($p['variante_id']) && $p['variante_id'] ? (int)$p['variante_id'] : null,
+                    (float)($p['valor'] ?? 0),
+                    (int)($p['duracao_min'] ?? 0),
+                ]);
+            }
+
+            $db->commit();
+            json_out(['id' => $agendId]);
+
+        } catch (Exception $e) {
+            $db->rollBack();
+            logApp('error', 'Erro ao salvar agendamento', ['msg' => $e->getMessage()]);
+            json_out(['erro' => 'Erro ao salvar agendamento'], 500);
         }
-        $db->prepare('DELETE FROM agendamento_procedimentos WHERE agendamento_id = ?')->execute([$agendId]);
-        $ins = $db->prepare('INSERT INTO agendamento_procedimentos (agendamento_id,procedimento_id,variante_id,valor,duracao_min) VALUES (?,?,?,?,?)');
-        foreach ($procs as $p)
-            $ins->execute([$agendId, $p['procedimento_id'], $p['variante_id'] ?? null, (float)($p['valor'] ?? 0), (int)($p['duracao_min'] ?? 0)]);
-        json_out(['id' => $agendId]);
     }
+
+    // DELETE /agendamentos/:id
     if ($method === 'DELETE' && count($parts) === 2) {
         $db->prepare('DELETE FROM agendamentos WHERE id = ?')->execute([(int)$parts[1]]);
         json_out(['ok' => true]);
     }
+
+    // PATCH /agendamentos/:id/status
     if ($method === 'PATCH' && count($parts) === 3 && $parts[2] === 'status') {
+        $status = body()['status'] ?? '';
         $db->prepare('UPDATE agendamentos SET status = ? WHERE id = ?')
-           ->execute([body()['status'] ?? '', (int)$parts[1]]);
+           ->execute([$status, (int)$parts[1]]);
         json_out(['ok' => true]);
     }
 }
@@ -413,27 +442,32 @@ if ($parts[0] === 'financeiro') {
     $db  = getDb();
     $ini = $_GET['inicio'] ?? '';
     $fim = $_GET['fim']    ?? '';
+
     if (($parts[1] ?? '') === 'resumo' && $method === 'GET') {
         $s = $db->prepare(
             "SELECT COUNT(*) as total_agendamentos,
                     SUM(CASE WHEN status='concluido' THEN valor_cobrado ELSE 0 END) as recebido,
                     SUM(CASE WHEN status='agendado'  THEN valor_cobrado ELSE 0 END) as a_receber,
                     SUM(CASE WHEN status='cancelado' THEN 1 ELSE 0 END)             as cancelados
-             FROM agendamentos WHERE DATE(data_hora) BETWEEN ? AND ?"
+             FROM agendamentos
+             WHERE DATE(data_hora) BETWEEN ? AND ?"
         );
         $s->execute([$ini, $fim]);
         json_out($s->fetch());
     }
+
     if (($parts[1] ?? '') === 'detalhado' && $method === 'GET') {
+        // CORRIGIDO: GROUP BY inclui todas as colunas não-agregadas (MySQL strict mode)
         $s = $db->prepare(
-            "SELECT a.data_hora, a.status, a.valor_cobrado, c.nome as cliente_nome,
-                    GROUP_CONCAT(p2.nome SEPARATOR ', ') as procedimento_nome
+            "SELECT a.id, a.data_hora, a.status, a.valor_cobrado,
+                    c.nome as cliente_nome,
+                    GROUP_CONCAT(p2.nome ORDER BY p2.nome SEPARATOR ', ') as procedimento_nome
              FROM agendamentos a
              JOIN clientes c ON c.id = a.cliente_id
              LEFT JOIN agendamento_procedimentos ap2 ON ap2.agendamento_id = a.id
              LEFT JOIN procedimentos p2 ON p2.id = ap2.procedimento_id
              WHERE DATE(a.data_hora) BETWEEN ? AND ?
-             GROUP BY a.id
+             GROUP BY a.id, a.data_hora, a.status, a.valor_cobrado, c.nome
              ORDER BY a.data_hora"
         );
         $s->execute([$ini, $fim]);
@@ -452,7 +486,7 @@ if ($parts[0] === 'cliente-proc') {
     }
     if ($method === 'POST' && count($parts) === 1) {
         $b       = body();
-        $cid     = (int)$b['clienteId'];
+        $cid     = (int)($b['clienteId'] ?? 0);
         $procIds = $b['procedimentoIds'] ?? [];
         $db->prepare('DELETE FROM cliente_procedimentos_interesse WHERE cliente_id = ?')->execute([$cid]);
         $ins = $db->prepare('INSERT INTO cliente_procedimentos_interesse (cliente_id, procedimento_id) VALUES (?,?)');
@@ -472,7 +506,7 @@ if ($parts[0] === 'cliente-variantes') {
     }
     if ($method === 'POST' && count($parts) === 1) {
         $b      = body();
-        $cid    = (int)$b['clienteId'];
+        $cid    = (int)($b['clienteId'] ?? 0);
         $varIds = $b['varianteIds'] ?? [];
         $db->prepare('DELETE FROM cliente_variantes_interesse WHERE cliente_id = ?')->execute([$cid]);
         $ins = $db->prepare('INSERT IGNORE INTO cliente_variantes_interesse (cliente_id, variante_id) VALUES (?,?)');

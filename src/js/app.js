@@ -1,26 +1,30 @@
-const _isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-const _LOGIN_URL = _isLocal ? '/projeto-agenda-php/src/login.html' : '/src/login.html';
+// ── Configuração de navegação ─────────────────────────────────
+const _isLocalApp = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const _basePath   = location.pathname.replace(/\/src\/.*$/, '');
+const _LOGIN_URL  = `${_basePath}/src/login.html`;
 
 const paginas = {
-  calendario: renderCalendario,
-  agendamentos: renderAgendamentos,
-  clientes: renderClientes,
+  calendario:    renderCalendario,
+  agendamentos:  renderAgendamentos,
+  clientes:      renderClientes,
   procedimentos: renderProcedimentos,
-  financeiro: renderFinanceiro,
-  usuarios: renderUsuarios,
+  financeiro:    renderFinanceiro,
+  usuarios:      renderUsuarios,
 };
 
 let paginaAtual = null;
 
+// ── Inicialização ─────────────────────────────────────────────
 async function init() {
-  // Verifica autenticação
   const me = await window.api.auth.me().catch(() => null);
   if (!me || !me.usuario) {
     window.location.href = _LOGIN_URL;
     return;
   }
 
-  document.getElementById('usuario-logado').textContent = me.usuario;
+  // Exibe nome do usuário logado
+  const elUsuario = document.getElementById('usuario-logado');
+  if (elUsuario) elUsuario.textContent = me.usuario;
 
   // Mostra itens conforme permissão
   if (me.is_admin || me.cargo === 'gerente') {
@@ -33,27 +37,37 @@ async function init() {
   // Guarda dados do usuário globalmente
   window.usuarioLogado = me;
 
-  // Navegação
-  document.querySelectorAll('.nav-btn').forEach(btn => {
+  // Logout
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogout) {
+    btnLogout.addEventListener('click', async () => {
+      await window.api.auth.logout().catch(() => {});
+      window.location.href = _LOGIN_URL;
+    });
+  }
+
+  // Navegação — usa '.nav-link' que já existe no index.html
+  document.querySelectorAll('.nav-link[data-page]').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.nav-link[data-page]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       navegarPara(btn.dataset.page);
     });
-  });
-
-  // Logout
-  document.getElementById('btn-logout').addEventListener('click', async () => {
-    await window.api.auth.logout();
-    window.location.href = _LOGIN_URL;
   });
 
   // Página inicial
   navegarPara('calendario');
 }
 
+// ── Navegação ─────────────────────────────────────────────────
 function navegarPara(pagina) {
   paginaAtual = pagina;
+
+  // Marca link ativo na sidebar
+  document.querySelectorAll('.nav-link[data-page]').forEach(a => {
+    a.classList.toggle('active', a.dataset.page === pagina);
+  });
+
   const fn = paginas[pagina];
   if (fn) fn();
 }

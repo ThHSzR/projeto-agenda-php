@@ -16,6 +16,7 @@
              background: #2563eb; color: #fff; border: none;
              border-radius: 4px; font-size: 1rem; cursor: pointer; }
     button:hover { background: #1d4ed8; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
     #erro { margin-top: 12px; color: #dc2626; font-size: 0.85rem; display: none; }
   </style>
 </head>
@@ -27,21 +28,32 @@
     <label>Senha</label>
     <input type="password" id="senha" autocomplete="current-password"
            onkeydown="if(event.key==='Enter') logar()" />
-    <button onclick="logar()">Entrar</button>
+    <button id="btn-entrar" onclick="logar()">Entrar</button>
     <p id="erro"></p>
   </div>
   <script>
-    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    const API_BASE  = isLocal ? '/projeto-agenda-php/api'           : '/api';
-    const HOME_URL  = isLocal ? '/projeto-agenda-php/src/index.html' : '/src/index.html';
-    // Se já está logado, redireciona direto
-    fetch(`${API_BASE}/me`, { credentials: 'same-origin' })
-      .then(r => { if (r.ok) location.href = HOME_URL; });
+    // Calcula base path dinamicamente — funciona em qualquer subpasta
+    const _basePath = location.pathname.replace(/\/src\/.*$/, '');
+    const _isLocal  = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+
+    // URL da API: usa api.php direto em dev (igual ao api.js) — evita dependência do .htaccess
+    function apiUrl(rota) {
+      return _isLocal
+        ? `${_basePath}/api.php?_route=${rota}`
+        : `/api/${rota}`;
+    }
+
+    // Se já está logado, vai direto para a app
+    fetch(apiUrl('me'), { credentials: 'same-origin' })
+      .then(r => { if (r.ok) location.href = `${_basePath}/src/index.html`; })
+      .catch(() => { /* ignora — permanece na tela de login */ });
 
     async function logar() {
       const usuario = document.getElementById('usuario').value.trim();
       const senha   = document.getElementById('senha').value;
       const erro    = document.getElementById('erro');
+      const btn     = document.getElementById('btn-entrar');
+
       erro.style.display = 'none';
 
       if (!usuario || !senha) {
@@ -50,20 +62,32 @@
         return;
       }
 
-      const res = await fetch(`${API_BASE}/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ usuario, senha })
-      });
+      btn.disabled = true;
+      btn.textContent = 'Entrando…';
 
-      const data = await res.json();
-      if (res.ok) {
-        location.href = HOME_URL;
-      } else {
-        erro.textContent = data.erro || 'Erro ao fazer login.';
+      try {
+        const res  = await fetch(apiUrl('login'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ usuario, senha }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          location.href = `${_basePath}/src/index.html`;
+        } else {
+          erro.textContent = data.erro || 'Erro ao fazer login.';
+          erro.style.display = 'block';
+          document.getElementById('senha').value = '';
+        }
+      } catch (e) {
+        erro.textContent = 'Não foi possível conectar ao servidor.';
         erro.style.display = 'block';
-        document.getElementById('senha').value = '';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Entrar';
       }
     }
   </script>
