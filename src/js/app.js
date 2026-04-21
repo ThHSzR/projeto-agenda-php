@@ -1,3 +1,6 @@
+const _isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const _LOGIN_URL = _isLocal ? '/projeto-agenda-php/src/login.html' : '/src/login.html';
+
 const paginas = {
   calendario: renderCalendario,
   agendamentos: renderAgendamentos,
@@ -13,7 +16,7 @@ async function init() {
   // Verifica autenticação
   const me = await window.api.auth.me().catch(() => null);
   if (!me || !me.usuario) {
-    window.location.href = '/src/login.html';
+    window.location.href = _LOGIN_URL;
     return;
   }
 
@@ -42,7 +45,7 @@ async function init() {
   // Logout
   document.getElementById('btn-logout').addEventListener('click', async () => {
     await window.api.auth.logout();
-    window.location.href = '/src/login.html';
+    window.location.href = _LOGIN_URL;
   });
 
   // Página inicial
