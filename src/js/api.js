@@ -1,25 +1,35 @@
-const _BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-    ? '/projeto-agenda-php/api.php'
-    : '/api';
+// DEPOIS
+const _isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const _BASE = _isLocal ? '/projeto-agenda-php/api.php?_route=' : '/api/';
 
 const api = {
     async _fetch(method, url, body) {
-        const opts = {
-            method,
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin'
-        };
-        if (body !== undefined) opts.body = JSON.stringify(body);
-        const res = await fetch(_BASE + url, opts);
-        if (res.status === 401) {
-            const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-            window.location.href = isLocal
-                ? '/projeto-agenda-php/src/login.html'
-                : '/src/login.html';
-            return;
-        }
-        return res.json();
-    },
+    const opts = {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin'
+    };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+
+    // Em localhost: /api.php?_route=me&param=x
+    // Em produção: /api/me?param=x
+    let fullUrl;
+    if (_isLocal) {
+        const [path, qs] = url.replace(/^\//, '').split('?');
+        fullUrl = `/projeto-agenda-php/api.php?_route=${path}${qs ? '&' + qs : ''}`;
+    } else {
+        fullUrl = '/api' + url;
+    }
+
+    const res = await fetch(fullUrl, opts);
+    if (res.status === 401) {
+        window.location.href = _isLocal
+            ? '/projeto-agenda-php/src/login.html'
+            : '/src/login.html';
+        return;
+    }
+    return res.json();
+},
 
     auth: {
         login:  (usuario, senha) => api._fetch('POST', '/login', { usuario, senha }),

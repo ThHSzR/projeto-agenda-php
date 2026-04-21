@@ -33,7 +33,7 @@
   <script>
     const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     const API_BASE  = isLocal ? '/projeto-agenda-php/api'           : '/api';
-const HOME_URL  = isLocal ? '/projeto-agenda-php/src/index.html' : '/src/index.html';
+    const HOME_URL  = isLocal ? '/projeto-agenda-php/src/index.html' : '/src/index.html';
     // Se já está logado, redireciona direto
     fetch(`${API_BASE}/me`, { credentials: 'same-origin' })
       .then(r => { if (r.ok) location.href = HOME_URL; });

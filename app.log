@@ -12,3 +12,12 @@
 [2026-04-21 03:31:18] [INFO] ── REQUISIÇÃO ── {"method":"GET","route":"login","ip":"::1","session":"aa6rn7rm6vqmqs0faujia32ksr","logado":true,"cookies":["PHPSESSID"]}
 [2026-04-21 03:48:02] [INFO] ── REQUISIÇÃO ── {"method":"GET","route":"me","ip":"::1","session":"aa6rn7rm6vqmqs0faujia32ksr","logado":true,"cookies":["PHPSESSID"]}
 [2026-04-21 03:50:47] [INFO] ── REQUISIÇÃO ── {"method":"GET","route":"login","ip":"::1","session":"aa6rn7rm6vqmqs0faujia32ksr","logado":true,"cookies":["PHPSESSID"]}
+[2026-04-21 03:53:17] [INFO] ── REQUISIÇÃO ── {"method":"GET","route":"me","ip":"::1","session":"aa6rn7rm6vqmqs0faujia32ksr","logado":true,"cookies":["PHPSESSID"]}
+[2026-04-21 03:54:59] [INFO] ── REQUISIÇÃO ── {"method":"GET","route":"me","ip":"::1","session":"aa6rn7rm6vqmqs0faujia32ksr","logado":true,"cookies":["PHPSESSID"]}
+[2026-04-21 03:57:26] [INFO] ── REQUISIÇÃO ── {"method":"GET","route":"me","ip":"::1","session":"aa6rn7rm6vqmqs0faujia32ksr","logado":true,"cookies":["PHPSESSID"]}
+[2026-04-21 04:01:35] [INFO] ── REQUISIÇÃO ── {"method":"GET","route":"me","ip":"::1","session":"aa6rn7rm6vqmqs0faujia32ksr","logado":true,"cookies":["PHPSESSID"]}
+[2026-04-21 04:03:19] [INFO] ── REQUISIÇÃO ── {"method":"GET","route":"\/","ip":"::1","session":"aa6rn7rm6vqmqs0faujia32ksr","logado":true,"cookies":["PHPSESSID"]}
+[2026-04-21 04:05:37] [INFO] ── REQUISIÇÃO ── {"method":"GET","route":"me","ip":"::1","session":"aa6rn7rm6vqmqs0faujia32ksr","logado":true,"cookies":["PHPSESSID"]}
+[2026-04-21 04:05:50] [INFO] ── REQUISIÇÃO ── {"method":"GET","route":"\/","ip":"::1","session":"aa6rn7rm6vqmqs0faujia32ksr","logado":true,"cookies":["PHPSESSID"]}
+[2026-04-21 04:06:23] [INFO] ── REQUISIÇÃO ── {"method":"GET","route":"me","ip":"::1","session":"aa6rn7rm6vqmqs0faujia32ksr","logado":true,"cookies":["PHPSESSID"]}
+[2026-04-21 04:14:35] [INFO] ── REQUISIÇÃO ── {"method":"GET","route":"me","ip":"::1","session":"aa6rn7rm6vqmqs0faujia32ksr","logado":true,"cookies":["PHPSESSID"]}
