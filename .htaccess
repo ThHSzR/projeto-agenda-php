@@ -1,17 +1,20 @@
 Options -Indexes
 RewriteEngine On
+RewriteBase /projeto-agenda-php/
 
-# Redireciona raiz para a SPA
-RewriteRule ^$ src/index.html [L]
-
-# Rotas da API: /api/* → api.php
-RewriteRule ^api/(.*)$ api.php?_route=$1 [QSA,L]
-
-# Login / logout
-RewriteRule ^login$  login.php  [L]
-RewriteRule ^logout$ logout.php [L]
-
-# Arquivos estáticos existentes: serve direto
+# Arquivos/pastas físicos existentes — serve direto (exceto api.php)
+RewriteCond %{REQUEST_URI} !^/projeto-agenda-php/api\.php
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
+
+# Raiz → SPA
+RewriteRule ^$ src/index.html [L]
+
+# Rotas da API: /projeto-agenda-php/api/xxx → api.php?_route=xxx
+RewriteRule ^api/(.+)$ api.php?_route=$1 [QSA,L]
+RewriteRule ^api$ api.php [QSA,L]
+
+# login / logout
+RewriteRule ^login$  login.php  [L]
+RewriteRule ^logout$ logout.php [L]
