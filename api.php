@@ -1,14 +1,39 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/logger.php';
 
-// ── Sessão segura ────────────────────────────────────────────────────────────
+// ── Sessão PRIMEIRO — antes de qualquer uso de $_SESSION ─────────────────────
 ini_set('session.cookie_httponly', 1);
 ini_set('session.use_strict_mode', 1);
 ini_set('session.cookie_samesite', 'Strict');
 session_set_cookie_params(['lifetime' => SESSION_LIFETIME, 'httponly' => true, 'samesite' => 'Strict']);
-session_start();
+session_start(); // <── DEVE vir antes de qualquer $_SESSION
 
+// ── AGORA sim pode logar ──────────────────────────────────────────────────────
+logApp('info', '── REQUISIÇÃO ──', [
+    'method'  => $_SERVER['REQUEST_METHOD'],
+    'route'   => $_GET['_route'] ?? '/',
+    'ip'      => $_SERVER['REMOTE_ADDR'],
+    'session' => session_id(),
+    'logado'  => $_SESSION['logado'] ?? false,
+    'cookies' => array_keys($_COOKIE),
+]);
+
+$_rawBody = file_get_contents('php://input');
+if ($_rawBody) {
+    $_bodyLog = json_decode($_rawBody, true) ?? [];
+    unset($_bodyLog['senha']);
+    logApp('info', 'BODY recebido', $_bodyLog);
+}
+
+// ── CORS ──────────────────────────────────────────────────────────────────────
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET,POST,PATCH,DELETE,OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
+
+// ... resto do arquivo igual
 // ── Helpers ────────────────────────────────────────────────────────────────
 function json_out($data, int $code = 200): void {
     http_response_code($code);
@@ -62,30 +87,76 @@ $parts = explode('/', $route);
 
 // ── AUTH ─────────────────────────────────────────────────────────────────────
 if ($route === 'login' && $method === 'POST') {
+    logApp('info', 'Tentativa de login iniciada');
+
     $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-    if (!check_rate_limit($ip)) json_out(['erro' => 'Muitas tentativas. Aguarde 15 minutos.'], 429);
+    if (!check_rate_limit($ip)) {
+        logApp('warn', 'Rate limit atingido', ['ip' => $ip]);
+        json_out(['erro' => 'Muitas tentativas. Aguarde 15 minutos.'], 429);
+    }
+
     $b       = body();
     $usuario = trim($b['usuario'] ?? '');
     $senha   = $b['senha'] ?? '';
-    if (!$usuario || !$senha) json_out(['erro' => 'Preencha usuário e senha'], 400);
-    $db    = getDb();
-    $total = $db->query('SELECT COUNT(*) FROM usuarios')->fetchColumn();
-    if ($total == 0) {
-        $hash = password_hash('admin123', PASSWORD_BCRYPT);
-        $db->prepare('INSERT INTO usuarios (usuario, senha, is_admin, cargo) VALUES (?,?,1,"admin")')
-           ->execute(['admin', $hash]);
+
+    logApp('info', 'Dados recebidos no login', ['usuario' => $usuario, 'senha_vazia' => empty($senha)]);
+
+    if (!$usuario || !$senha) {
+        logApp('warn', 'Login sem usuario ou senha');
+        json_out(['erro' => 'Preencha usuário e senha'], 400);
     }
-    $stmt = $db->prepare('SELECT * FROM usuarios WHERE usuario = ?');
-    $stmt->execute([$usuario]);
-    $user = $stmt->fetch();
-    if (!$user || !password_verify($senha, $user['senha']))
-        json_out(['erro' => 'Usuário ou senha incorretos'], 401);
-    session_regenerate_id(true);
-    $_SESSION['logado']   = true;
-    $_SESSION['usuario']  = $user['usuario'];
-    $_SESSION['is_admin'] = (bool)$user['is_admin'];
-    $_SESSION['cargo']    = $user['cargo'] ?? 'operador';
-    json_out(['ok' => true, 'is_admin' => (bool)$user['is_admin'], 'cargo' => $_SESSION['cargo']]);
+
+    try {
+        $db = getDb();
+        logApp('info', 'Conexão com DB OK');
+
+        $total = $db->query('SELECT COUNT(*) FROM usuarios')->fetchColumn();
+        logApp('info', 'Total de usuarios no banco', ['total' => $total]);
+
+        if ($total == 0) {
+            $hash = password_hash('admin123', PASSWORD_BCRYPT);
+            $db->prepare('INSERT INTO usuarios (usuario, senha, is_admin, cargo) VALUES (?,?,1,"admin")')
+               ->execute(['admin', $hash]);
+            logApp('info', 'Admin padrão criado automaticamente');
+        }
+
+        $stmt = $db->prepare('SELECT * FROM usuarios WHERE usuario = ?');
+        $stmt->execute([$usuario]);
+        $user = $stmt->fetch();
+
+        logApp('info', 'Busca por usuario', ['encontrado' => (bool)$user]);
+
+        if (!$user) {
+            logApp('warn', 'Usuario nao encontrado', ['usuario' => $usuario]);
+            json_out(['erro' => 'Usuário ou senha incorretos'], 401);
+        }
+
+        $senhaOk = password_verify($senha, $user['senha']);
+        logApp('info', 'Verificacao de senha', [
+            'usuario'  => $usuario,
+            'hash_len' => strlen($user['senha']),
+            'hash_ini' => substr($user['senha'], 0, 7),
+            'senha_ok' => $senhaOk,
+        ]);
+
+        if (!$senhaOk) {
+            logApp('warn', 'Senha incorreta', ['usuario' => $usuario]);
+            json_out(['erro' => 'Usuário ou senha incorretos'], 401);
+        }
+
+        session_regenerate_id(true);
+        $_SESSION['logado']   = true;
+        $_SESSION['usuario']  = $user['usuario'];
+        $_SESSION['is_admin'] = (bool)$user['is_admin'];
+        $_SESSION['cargo']    = $user['cargo'] ?? 'operador';
+
+        logApp('info', 'Login bem-sucedido', ['usuario' => $usuario, 'session_id' => session_id()]);
+        json_out(['ok' => true, 'is_admin' => (bool)$user['is_admin'], 'cargo' => $_SESSION['cargo']]);
+
+    } catch (Exception $e) {
+        logApp('error', 'Excecao no login', ['msg' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+        json_out(['erro' => 'Erro interno'], 500);
+    }
 }
 
 if ($route === 'logout' && $method === 'POST') {
