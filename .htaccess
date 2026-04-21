@@ -1,9 +1,15 @@
 Options -Indexes
 RewriteEngine On
-RewriteBase /projeto-agenda-php/
 
-# Arquivos/pastas físicos existentes — serve direto (exceto api.php)
-RewriteCond %{REQUEST_URI} !^/projeto-agenda-php/api\.php
+# ============================================================
+# MODO LOCAL (XAMPP/subpasta): descomente RewriteBase abaixo
+# MODO HOSTGATOR (raiz do domínio): deixe RewriteBase comentado
+# ============================================================
+
+# RewriteBase /projeto-agenda-php/
+
+# Arquivos/pastas físicos — serve direto (exceto chamadas à api)
+RewriteCond %{REQUEST_URI} !^(/projeto-agenda-php)?/api
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
@@ -11,9 +17,9 @@ RewriteRule ^ - [L]
 # Raiz → SPA
 RewriteRule ^$ src/index.html [L]
 
-# Rotas da API: /projeto-agenda-php/api/xxx → api.php?_route=xxx
+# Rotas da API → api.php
 RewriteRule ^api/(.+)$ api.php?_route=$1 [QSA,L]
-RewriteRule ^api$ api.php [QSA,L]
+RewriteRule ^api$       api.php          [QSA,L]
 
 # login / logout
 RewriteRule ^login$  login.php  [L]

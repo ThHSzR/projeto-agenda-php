@@ -1,5 +1,5 @@
 const _BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-    ? '/projeto-agenda-php/api'
+    ? '/projeto-agenda-php/api.php'
     : '/api';
 
 const api = {

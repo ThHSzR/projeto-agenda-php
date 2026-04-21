@@ -3,14 +3,14 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/logger.php';
 
-// ── Sessão PRIMEIRO — antes de qualquer uso de $_SESSION ─────────────────────
+// ── Sessão PRIMEIRO ──────────────────────────────────────────────────────────
 ini_set('session.cookie_httponly', 1);
 ini_set('session.use_strict_mode', 1);
 ini_set('session.cookie_samesite', 'Strict');
 session_set_cookie_params(['lifetime' => SESSION_LIFETIME, 'httponly' => true, 'samesite' => 'Strict']);
-session_start(); // <── DEVE vir antes de qualquer $_SESSION
+session_start();
 
-// ── AGORA sim pode logar ──────────────────────────────────────────────────────
+// ── Log da requisição ────────────────────────────────────────────────────────
 logApp('info', '── REQUISIÇÃO ──', [
     'method'  => $_SERVER['REQUEST_METHOD'],
     'route'   => $_GET['_route'] ?? '/',
@@ -20,6 +20,7 @@ logApp('info', '── REQUISIÇÃO ──', [
     'cookies' => array_keys($_COOKIE),
 ]);
 
+// Lê o body UMA única vez e guarda na variável global
 $_rawBody = file_get_contents('php://input');
 if ($_rawBody) {
     $_bodyLog = json_decode($_rawBody, true) ?? [];
@@ -27,14 +28,13 @@ if ($_rawBody) {
     logApp('info', 'BODY recebido', $_bodyLog);
 }
 
-// ── CORS ──────────────────────────────────────────────────────────────────────
+// ── CORS ─────────────────────────────────────────────────────────────────────
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET,POST,PATCH,DELETE,OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
-// ... resto do arquivo igual
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function json_out($data, int $code = 200): void {
     http_response_code($code);
     header('Content-Type: application/json; charset=utf-8');
@@ -42,9 +42,10 @@ function json_out($data, int $code = 200): void {
     exit;
 }
 
+// Usa o $_rawBody já lido acima — evita leitura dupla de php://input
 function body(): array {
-    $raw = file_get_contents('php://input');
-    return json_decode($raw, true) ?? [];
+    global $_rawBody;
+    return json_decode($_rawBody ?? '', true) ?? [];
 }
 
 function auth_required(): void {
@@ -74,12 +75,7 @@ function check_rate_limit(string $ip): bool {
     return true;
 }
 
-// ── Roteamento ──────────────────────────────────────────────────────────────
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET,POST,PATCH,DELETE,OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
-
+// ── Roteamento ───────────────────────────────────────────────────────────────
 $method = $_SERVER['REQUEST_METHOD'];
 $route  = trim($_GET['_route'] ?? '', '/');
 if (($qpos = strpos($route, '?')) !== false) $route = substr($route, 0, $qpos);
@@ -269,7 +265,7 @@ if ($parts[0] === 'clientes') {
     }
 }
 
-// ── PROCEDIMENTOS ──────────────────────────────────────────────────────────────
+// ── PROCEDIMENTOS ─────────────────────────────────────────────────────────────
 if ($parts[0] === 'procedimentos') {
     auth_required();
     $db = getDb();
@@ -300,7 +296,7 @@ if ($parts[0] === 'procedimentos') {
     }
 }
 
-// ── VARIANTES ──────────────────────────────────────────────────────────────────
+// ── VARIANTES ─────────────────────────────────────────────────────────────────
 if ($parts[0] === 'variantes') {
     auth_required();
     $db = getDb();
@@ -445,7 +441,7 @@ if ($parts[0] === 'financeiro') {
     }
 }
 
-// ── CLIENTE-PROC ───────────────────────────────────────────────────────────
+// ── CLIENTE-PROC ──────────────────────────────────────────────────────────────
 if ($parts[0] === 'cliente-proc') {
     auth_required();
     $db = getDb();
@@ -455,9 +451,9 @@ if ($parts[0] === 'cliente-proc') {
         json_out(array_column($s->fetchAll(), 'procedimento_id'));
     }
     if ($method === 'POST' && count($parts) === 1) {
-        $b         = body();
-        $cid       = (int)$b['clienteId'];
-        $procIds   = $b['procedimentoIds'] ?? [];
+        $b       = body();
+        $cid     = (int)$b['clienteId'];
+        $procIds = $b['procedimentoIds'] ?? [];
         $db->prepare('DELETE FROM cliente_procedimentos_interesse WHERE cliente_id = ?')->execute([$cid]);
         $ins = $db->prepare('INSERT INTO cliente_procedimentos_interesse (cliente_id, procedimento_id) VALUES (?,?)');
         foreach ($procIds as $pid) $ins->execute([$cid, (int)$pid]);
@@ -465,7 +461,7 @@ if ($parts[0] === 'cliente-proc') {
     }
 }
 
-// ── CLIENTE-VARIANTES ───────────────────────────────────────────────────────
+// ── CLIENTE-VARIANTES ─────────────────────────────────────────────────────────
 if ($parts[0] === 'cliente-variantes') {
     auth_required();
     $db = getDb();
@@ -475,9 +471,9 @@ if ($parts[0] === 'cliente-variantes') {
         json_out(array_column($s->fetchAll(), 'variante_id'));
     }
     if ($method === 'POST' && count($parts) === 1) {
-        $b       = body();
-        $cid     = (int)$b['clienteId'];
-        $varIds  = $b['varianteIds'] ?? [];
+        $b      = body();
+        $cid    = (int)$b['clienteId'];
+        $varIds = $b['varianteIds'] ?? [];
         $db->prepare('DELETE FROM cliente_variantes_interesse WHERE cliente_id = ?')->execute([$cid]);
         $ins = $db->prepare('INSERT IGNORE INTO cliente_variantes_interesse (cliente_id, variante_id) VALUES (?,?)');
         foreach ($varIds as $vid) $ins->execute([$cid, (int)$vid]);
@@ -486,6 +482,4 @@ if ($parts[0] === 'cliente-variantes') {
 }
 
 // ── Rota não encontrada ───────────────────────────────────────────────────────
-header('Content-Type: application/json; charset=utf-8');
-http_response_code(404);
-echo json_encode(['erro' => 'Rota não encontrada: ' . $route]);
+json_out(['erro' => 'Rota não encontrada: ' . $route], 404);
