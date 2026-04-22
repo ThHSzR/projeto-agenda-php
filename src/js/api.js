@@ -2,8 +2,7 @@
 // Funciona em qualquer subpasta sem precisar alterar o código.
 // Ex: XAMPP em /projeto-agenda-php/ → _basePath = '/projeto-agenda-php'
 //     Produção na raiz             → _basePath = ''
-const _isLocal  = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-const _basePath = location.pathname.replace(/\/src\/.*$/, '');
+const _basePath = location.pathname.replace(/\/src\/.*$/, '').replace(/\/index\.html$/, '');
 
 const api = {
   async _fetch(method, url, body) {
@@ -14,15 +13,9 @@ const api = {
     };
     if (body !== undefined) opts.body = JSON.stringify(body);
 
-    // localhost  → acessa api.php diretamente com _route= (sem depender do rewrite)
-    // produção   → usa a URL amigável via .htaccess
-    let fullUrl;
-    if (_isLocal) {
-      const [path, qs] = url.replace(/^\//, '').split('?');
-      fullUrl = `${_basePath}/api.php?_route=${path}${qs ? '&' + qs : ''}`;
-    } else {
-      fullUrl = '/api' + url;
-    }
+    // Sempre usa api.php?_route= — não depende de mod_rewrite nem .htaccess
+    const [path, qs] = url.replace(/^\//, '').split('?');
+    const fullUrl = `${_basePath}/api.php?_route=${path}${qs ? '&' + qs : ''}`;
 
     const res = await fetch(fullUrl, opts);
 
@@ -114,14 +107,7 @@ const api = {
   },
   backup: {
     download: () => {
-      // Backup é um download direto, não JSON
-      let url;
-      if (_isLocal) {
-        url = `${_basePath}/api.php?_route=backup`;
-      } else {
-        url = '/api/backup';
-      }
-      window.open(url, '_blank');
+      window.open(`${_basePath}/api.php?_route=backup`, '_blank');
     },
   },
   clienteProc: {
