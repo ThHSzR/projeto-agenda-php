@@ -31,7 +31,9 @@ const api = {
       return;
     }
 
-    return res.json();
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.erro || `Erro HTTP ${res.status}`);
+    return data;
   },
 
   auth: {
@@ -43,13 +45,15 @@ const api = {
     listar:      () => api._fetch('GET', '/usuarios'),
     criar:       (d) => api._fetch('POST', '/usuarios', d),
     trocarSenha: (id, senha) => api._fetch('PATCH', `/usuarios/${id}/senha`, { senha }),
+    trocarCargo: (id, cargo) => api._fetch('PATCH', `/usuarios/${id}/cargo`, { cargo }),
     excluir:     (id) => api._fetch('DELETE', `/usuarios/${id}`),
   },
   clientes: {
-    listar:  () => api._fetch('GET', '/clientes'),
-    buscar:  (id) => api._fetch('GET', `/clientes/${id}`),
-    salvar:  (dados) => api._fetch('POST', '/clientes', dados),
-    excluir: (id) => api._fetch('DELETE', `/clientes/${id}`),
+    listar:    () => api._fetch('GET', '/clientes'),
+    buscar:    (id) => api._fetch('GET', `/clientes/${id}`),
+    salvar:    (dados) => api._fetch('POST', '/clientes', dados),
+    excluir:   (id) => api._fetch('DELETE', `/clientes/${id}`),
+    historico: (id) => api._fetch('GET', `/clientes/${id}/historico`),
   },
   procedimentos: {
     listar:  () => api._fetch('GET', '/procedimentos'),
@@ -79,6 +83,46 @@ const api = {
   financeiro: {
     resumo:    (f) => api._fetch('GET', `/financeiro/resumo?inicio=${f.inicio}&fim=${f.fim}`),
     detalhado: (f) => api._fetch('GET', `/financeiro/detalhado?inicio=${f.inicio}&fim=${f.fim}`),
+  },
+  promocoes: {
+    listar:   () => api._fetch('GET', '/promocoes'),
+    buscar:   (id) => api._fetch('GET', `/promocoes/${id}`),
+    salvar:   (d) => api._fetch('POST', '/promocoes', d),
+    excluir:  (id) => api._fetch('DELETE', `/promocoes/${id}`),
+    calcular: (payload) => api._fetch('POST', '/promocoes/calcular', payload),
+  },
+  bloqueios: {
+    listar:  (filtro) => {
+      const p = new URLSearchParams();
+      if (filtro?.data_inicio) p.set('data_inicio', filtro.data_inicio);
+      if (filtro?.data_fim)    p.set('data_fim', filtro.data_fim);
+      const qs = p.toString();
+      return api._fetch('GET', '/bloqueios' + (qs ? '?' + qs : ''));
+    },
+    salvar:  (d) => api._fetch('POST', '/bloqueios', d),
+    excluir: (id) => api._fetch('DELETE', `/bloqueios/${id}`),
+  },
+  relatorios: {
+    faturamentoMensal:  (meses) => api._fetch('GET', `/relatorios/faturamento-mensal?meses=${meses || 6}`),
+    clientesFrequentes: () => api._fetch('GET', '/relatorios/clientes-frequentes'),
+  },
+  logs: {
+    listar: (limite) => api._fetch('GET', `/logs?limite=${limite || 100}`),
+  },
+  dashboard: {
+    dados: () => api._fetch('GET', '/dashboard'),
+  },
+  backup: {
+    download: () => {
+      // Backup é um download direto, não JSON
+      let url;
+      if (_isLocal) {
+        url = `${_basePath}/api.php?_route=backup`;
+      } else {
+        url = '/api/backup';
+      }
+      window.open(url, '_blank');
+    },
   },
   clienteProc: {
     getInteresse:    (id) => api._fetch('GET', `/cliente-proc/${id}`),

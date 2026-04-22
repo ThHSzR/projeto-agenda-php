@@ -4,6 +4,10 @@
 
 SET NAMES utf8mb4;
 
+-- ══════════════════════════════════════════════════════════════
+-- TABELAS BASE
+-- ══════════════════════════════════════════════════════════════
+
 CREATE TABLE IF NOT EXISTS usuarios (
   id        INT AUTO_INCREMENT PRIMARY KEY,
   usuario   VARCHAR(100)  NOT NULL UNIQUE,
@@ -71,7 +75,7 @@ CREATE TABLE IF NOT EXISTS procedimentos (
   nome          VARCHAR(200) NOT NULL,
   descricao     TEXT,
   duracao_min   INT          DEFAULT 60,
-  valor         DECIMAL(10,2) DEFAULT 0,
+  valor         DECIMAL(10,2) DEFAULT 0.00,
   ativo         TINYINT      DEFAULT 1,
   is_laser      TINYINT      DEFAULT 0,
   tem_variantes TINYINT      DEFAULT 0
@@ -83,7 +87,7 @@ CREATE TABLE IF NOT EXISTS procedimento_variantes (
   nome            VARCHAR(200) NOT NULL,
   descricao       TEXT,
   duracao_min     INT          DEFAULT 30,
-  valor           DECIMAL(10,2) DEFAULT 0,
+  valor           DECIMAL(10,2) DEFAULT 0.00,
   ativo           TINYINT      DEFAULT 1,
   FOREIGN KEY (procedimento_id) REFERENCES procedimentos(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -91,8 +95,8 @@ CREATE TABLE IF NOT EXISTS procedimento_variantes (
 CREATE TABLE IF NOT EXISTS agendamentos (
   id              INT AUTO_INCREMENT PRIMARY KEY,
   cliente_id      INT          NOT NULL,
-  procedimento_id INT,
-  variante_id     INT,
+  procedimento_id INT          NULL,
+  variante_id     INT          NULL,
   data_hora       DATETIME     NOT NULL,
   status          VARCHAR(20)  DEFAULT 'agendado',
   valor_cobrado   DECIMAL(10,2),
@@ -105,8 +109,8 @@ CREATE TABLE IF NOT EXISTS agendamento_procedimentos (
   id              INT AUTO_INCREMENT PRIMARY KEY,
   agendamento_id  INT          NOT NULL,
   procedimento_id INT          NOT NULL,
-  variante_id     INT,
-  valor           DECIMAL(10,2) DEFAULT 0,
+  variante_id     INT          NULL,
+  valor           DECIMAL(10,2) DEFAULT 0.00,
   duracao_min     INT          DEFAULT 0,
   FOREIGN KEY (agendamento_id)  REFERENCES agendamentos(id) ON DELETE CASCADE,
   FOREIGN KEY (procedimento_id) REFERENCES procedimentos(id)
@@ -126,4 +130,67 @@ CREATE TABLE IF NOT EXISTS cliente_variantes_interesse (
   PRIMARY KEY (cliente_id, variante_id),
   FOREIGN KEY (cliente_id)  REFERENCES clientes(id)                ON DELETE CASCADE,
   FOREIGN KEY (variante_id) REFERENCES procedimento_variantes(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ══════════════════════════════════════════════════════════════
+-- TABELAS NOVAS — Promoções, Bloqueios, Logs
+-- ══════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS promocoes (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  nome            VARCHAR(200) NOT NULL,
+  tipo_desconto   VARCHAR(30)  NOT NULL DEFAULT 'percentual',
+  valor_desconto  DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  modo_itens      VARCHAR(30)  NOT NULL DEFAULT 'lista_fechada',
+  quantidade_min  INT          NULL,
+  ativa           TINYINT      NOT NULL DEFAULT 1,
+  data_inicio     DATE         NULL,
+  data_fim        DATE         NULL,
+  dias_semana     VARCHAR(100) DEFAULT '[]',
+  limite_usos     INT          NULL,
+  usos            INT          NOT NULL DEFAULT 0,
+  criado_em       DATETIME     DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS promocao_regras (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  promocao_id     INT          NOT NULL,
+  tipo_regra      VARCHAR(30)  NOT NULL,
+  procedimento_id INT          NULL,
+  variante_id     INT          NULL,
+  quantidade      INT          NOT NULL DEFAULT 1,
+  FOREIGN KEY (promocao_id)     REFERENCES promocoes(id) ON DELETE CASCADE,
+  FOREIGN KEY (procedimento_id) REFERENCES procedimentos(id),
+  FOREIGN KEY (variante_id)     REFERENCES procedimento_variantes(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS promocao_usos (
+  id                INT AUTO_INCREMENT PRIMARY KEY,
+  promocao_id       INT          NOT NULL,
+  agendamento_id    INT          NOT NULL,
+  desconto_aplicado DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  criado_em         DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (promocao_id)    REFERENCES promocoes(id)    ON DELETE CASCADE,
+  FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS bloqueios_horario (
+  id               INT AUTO_INCREMENT PRIMARY KEY,
+  titulo           VARCHAR(200) NOT NULL DEFAULT 'Bloqueado',
+  data_hora_inicio DATETIME     NOT NULL,
+  data_hora_fim    DATETIME     NOT NULL,
+  motivo           TEXT,
+  recorrente       TINYINT      DEFAULT 0,
+  criado_em        DATETIME     DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS log_atividades (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  usuario_id  INT          NULL,
+  acao        VARCHAR(100) NOT NULL,
+  entidade    VARCHAR(100) NULL,
+  entidade_id INT          NULL,
+  detalhes    TEXT,
+  criado_em   DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

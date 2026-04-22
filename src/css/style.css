@@ -3,10 +3,10 @@
 }
 
 :root {
-  --rosa: #d8a8c3;
-  --rosa-botao: #af45b7;
+  --rosa: #d0c6d1;
+  --rosa-botao: #815aa4;
   --rosa-light: #f8b4d9;
-  --rosa-dark: #af45b7;
+  --rosa-dark: #815aa4;
   --bg: #fdf6fb;
   --surface: #ffffff;
   --surface-2: #fef0f8;
@@ -1079,21 +1079,144 @@ textarea {
 .dot-cancelado {
   background: #c62828;
 }
-/* ── Sidebar footer (usuário logado + logout) ── adicionado na correção ── */
-.sidebar-sep {
-  border: none;
-  border-top: 1px solid rgba(255,255,255,.15);
-  margin: 8px 0;
 }
-.sidebar-user {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  font-size: .82rem;
-  opacity: .75;
-  color: inherit;
+
+/* ── ROSA HOVER (para gráficos) ── */
+:root {
+  --rosa-hover: #a67bc5;
 }
-.nav-logout {
-  color: #fca5a5 !important;
+
+/* ── BADGES ── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.badge-agendado  { background: #e3f2fd; color: var(--info); }
+.badge-concluido { background: #e8f5e9; color: var(--success); }
+.badge-cancelado { background: #ffebee; color: var(--danger); }
+.badge-atrasado  { background: #fff3e0; color: var(--warning); }
+
+/* ── RESPONSIVIDADE ── */
+@media (max-width: 768px) {
+  #app {
+    flex-direction: column;
+  }
+  #sidebar {
+    width: 100%;
+    min-width: unset;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0;
+  }
+  #sidebar .brand {
+    display: none;
+  }
+  #sidebar nav {
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+    padding: 0;
+    overflow-x: auto;
+  }
+  #sidebar nav .nav-link {
+    white-space: nowrap;
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+  #sidebar nav hr {
+    display: none;
+  }
+  #content {
+    padding: 12px;
+  }
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .form-row {
+    flex-direction: column;
+  }
+  .modal.modal-lg {
+    width: 98%;
+    max-width: 98%;
+  }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+  .cal-month-grid {
+    font-size: 11px;
+  }
+}
+
+/* ── SCROLLBAR PERSONALIZADA ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ── ANIMAÇÃO DE FADE-IN PARA PÁGINAS ── */
+.page:not(.hidden) {
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── CARD HEADER ── */
+.card-header {
+  padding: 14px 18px;
+  font-weight: 700;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.card-body {
+  padding: 14px 18px;
+}
+
+/* ── SEÇÃO LABEL ── */
+.section-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+/* ── TOOLTIP ── */
+[title] {
+  cursor: help;
+}
+
+/* ── LOADING SPINNER ── */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--rosa-botao);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

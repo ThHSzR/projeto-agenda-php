@@ -1,218 +1,273 @@
 // ── helpers ──────────────────────────────────────────────────
 function switchTab(id, btn) {
-  document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(id).classList.remove('hidden');
   btn.classList.add('active');
 }
 
-async function renderClientes() {
-  const lista = await window.api.clientes.listar();
-  const main = document.getElementById('main-content');
+function _v(id) { const e = document.getElementById(id); return e ? e.value : ''; }
+function _set(id, val) { const e = document.getElementById(id); if (e) e.value = val || ''; }
+function _chk(id) { const e = document.getElementById(id); return e && e.checked ? 1 : 0; }
+function _setChk(id, val) { const e = document.getElementById(id); if (e) e.checked = !!val; }
 
-  main.innerHTML = `
-    <div class="page-header">
-      <h1>Clientes</h1>
-      <button class="btn btn-primary" id="btn-novo-cliente">+ Novo</button>
-    </div>
-
-    <div class="card">
-      <input id="busca-cliente" class="input" placeholder="Buscar por nome, CPF, telefone..." />
-    </div>
-
-    <table class="tabela">
-      <thead>
-        <tr>
-          <th>Nome</th>
-          <th>CPF</th>
-          <th>Telefone</th>
-          <th>Cidade/UF</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody id="tbody-clientes"></tbody>
-    </table>
-  `;
-
-  const tbody = document.getElementById('tbody-clientes');
-
-  function pintar(rows) {
-    tbody.innerHTML = rows.map(c => `
-      <tr>
-        <td>${c.nome || ''}</td>
-        <td>${c.cpf || ''}</td>
-        <td>${c.telefone || c.celular || ''}</td>
-        <td>${[c.cidade || '', c.uf || ''].filter(Boolean).join('/')}</td>
-        <td>
-          <button class="btn btn-sm btn-ghost" data-id="${c.id}" data-action="editar">Editar</button>
-          <button class="btn btn-sm btn-danger" data-id="${c.id}" data-action="excluir">Excluir</button>
-        </td>
-      </tr>
-    `).join('');
-
-    document.querySelectorAll('[data-action="editar"]').forEach(btn =>
-      btn.addEventListener('click', () => abrirModalCliente(btn.dataset.id))
-    );
-    document.querySelectorAll('[data-action="excluir"]').forEach(btn =>
-      btn.addEventListener('click', () => excluirCliente(btn.dataset.id))
-    );
-  }
-
-  async function excluirCliente(id) {
-    if (!await confirmar('Excluir este cliente?')) return;
-    const res = await window.api.clientes.excluir(id);
-    if (res?.ok) {
-      toast('Cliente excluído');
-      renderClientes();
-    } else {
-      toast(res?.erro || 'Erro ao excluir', 'erro');
-    }
-  }
-
-  const busca = document.getElementById('busca-cliente');
-  busca.addEventListener('input', () => {
-    const q = busca.value.trim().toLowerCase();
-    const filtrados = lista.filter(c =>
-      [c.nome, c.cpf, c.telefone, c.celular, c.email].some(v => String(v || '').toLowerCase().includes(q))
-    );
-    pintar(filtrados);
-  });
-
-  document.getElementById('btn-novo-cliente').addEventListener('click', () => abrirModalCliente());
-
-  pintar(lista);
+function _radioVal(name) {
+  const el = document.querySelector(`input[name="${name}"]:checked`);
+  return el ? parseInt(el.value) : 0;
+}
+function _setRadio(name, val) {
+  const el = document.querySelector(`input[name="${name}"][value="${val ? 1 : 0}"]`);
+  if (el) el.checked = true;
 }
 
-async function abrirModalCliente(id = null) {
-  const c = id ? await window.api.clientes.buscar(id) : {};
-  const procedimentos = await window.api.procedimentos.todos();
-  const interesseProc = id ? await window.api.clienteProc.getInteresse(id) : [];
-  const interesseVars = id ? await window.api.clienteVariantes.getInteresse(id) : [];
+// ── helpers de checkboxes ─────────────────────────────────────
+function _getCheckedIds(containerSelector) {
+  return [...document.querySelectorAll(`${containerSelector} input[type=checkbox]:checked`)]
+    .map(cb => parseInt(cb.value));
+}
 
-  const { overlay, fechar } = abrirModal(`
-    <h3>${id ? 'Editar' : 'Novo'} Cliente</h3>
+function _toggleFitzUI() {
+  const temLaser = !!document.querySelector('#cli-proc-interesse-list input[data-laser="1"]:checked');
+  document.getElementById('cli-fitz-section').classList.toggle('hidden', !temLaser);
+}
 
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="tab-dados">Dados</button>
-      <button class="tab-btn" data-tab="tab-anamnese">Anamnese</button>
-      <button class="tab-btn" data-tab="tab-interesses">Interesses</button>
+// ── render lista ──────────────────────────────────────────────
+async function renderClientes() {
+  const lista = await window.api.clientes.listar();
+  const page = document.getElementById('page-clientes');
+
+  page.innerHTML = `
+    <div class="page-header">
+      <h1>👤 Clientes</h1>
+      <button class="btn btn-primary" onclick="abrirNovoCliente()">+ Nova Ficha</button>
     </div>
-
-    <div id="tab-dados" class="tab-pane">
-      <div class="form-grid">
-        <label>Nome <input id="c-nome" value="${c.nome || ''}" /></label>
-        <label>Data de nascimento <input type="date" id="c-data" value="${c.data_nascimento || ''}" /></label>
-        <label>CPF <input id="c-cpf" value="${c.cpf || ''}" /></label>
-        <label>E-mail <input id="c-email" value="${c.email || ''}" /></label>
-        <label>Telefone <input id="c-telefone" value="${c.telefone || ''}" /></label>
-        <label>Celular <input id="c-celular" value="${c.celular || ''}" /></label>
-        <label>Endereço <input id="c-endereco" value="${c.endereco || ''}" /></label>
-        <label>Cidade <input id="c-cidade" value="${c.cidade || ''}" /></label>
-        <label>UF <input id="c-uf" maxlength="2" value="${c.uf || ''}" /></label>
-        <label class="full">Áreas a tratar <textarea id="c-areas">${c.areas_tratar || ''}</textarea></label>
-      </div>
+    <div class="search-bar">
+      <input type="text" id="busca-cliente" placeholder="🔍 Buscar por nome..." oninput="filtrarClientes()"/>
     </div>
+    <div class="card">
+      <table>
+        <thead>
+         <tr><th>Nome</th><th>Telefone</th><th>Nascimento</th><th>Fitzpatrick</th><th>Ações</th></tr></thead>
+        <tbody id="tbody-clientes">
+          ${lista.length === 0
+      ? `<tr><td colspan="6"><div class="empty-state"><div class="icon">👤</div><p>Nenhum cliente cadastrado.</p></div></td></tr>`
+      : lista.map(c => `
+              <tr data-nome="${c.nome.toLowerCase()}">
+                <td><strong>${c.nome}</strong></td>
+                <td>${c.telefone || '-'}</td>
+                <td>${fmtData(c.data_nascimento)}</td>
+                <td>${c.fitzpatrick ? 'Tipo ' + c.fitzpatrick : '-'}</td>
+                <td>
+                  <button class="btn btn-info btn-sm" onclick="editarCliente(${c.id})">✏️ Editar</button>
+                  <button class="btn btn-danger btn-sm" onclick="excluirCliente(${c.id})">🗑️</button>
+                  <button class="btn btn-whatsapp btn-sm"
+                    onclick="abrirWhatsApp('${c.telefone}', null)"
+                    title="Abrir WhatsApp">
+                    💬
+                    </button>
+                  </td>
+              </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
 
-    <div id="tab-anamnese" class="tab-pane hidden">
-      <div class="form-grid">
-        <label><input type="checkbox" id="c-met-cera" ${c.metodo_dep_cera ? 'checked' : ''}/> Depilação com cera</label>
-        <label><input type="checkbox" id="c-met-lamina" ${c.metodo_dep_lamina ? 'checked' : ''}/> Lâmina</label>
-        <label><input type="checkbox" id="c-met-laser" ${c.metodo_dep_laser ? 'checked' : ''}/> Laser</label>
-        <label><input type="checkbox" id="c-prob-encrav" ${c.prob_encravamento ? 'checked' : ''}/> Encravamento</label>
-        <label><input type="checkbox" id="c-prob-manchas" ${c.prob_manchas ? 'checked' : ''}/> Manchas</label>
-        <label class="full">Outros problemas <textarea id="c-prob-outros">${c.prob_outros || ''}</textarea></label>
-        <label><input type="checkbox" id="c-medicamento" ${c.medicamento_uso ? 'checked' : ''}/> Usa medicamento</label>
-        <label class="full">Qual medicamento <textarea id="c-medicamento-qual">${c.medicamento_qual || ''}</textarea></label>
-        <label><input type="checkbox" id="c-roacutan" ${c.roacutan ? 'checked' : ''}/> Roacutan</label>
-        <label><input type="checkbox" id="c-vitiligo" ${c.tto_vitiligo ? 'checked' : ''}/> Tratamento vitiligo</label>
-        <label><input type="checkbox" id="c-alergia" ${c.alergia_medicamento ? 'checked' : ''}/> Alergia medicamento</label>
-        <label class="full">Qual alergia <textarea id="c-alergia-qual">${c.alergia_qual || ''}</textarea></label>
-        <label><input type="checkbox" id="c-dermato" ${c.tratamento_dermato ? 'checked' : ''}/> Tratamento dermatológico</label>
-        <label class="full">Qual tratamento <textarea id="c-dermato-qual">${c.tratamento_dermato_qual || ''}</textarea></label>
-        <label><input type="checkbox" id="c-acidos" ${c.usa_acidos ? 'checked' : ''}/> Usa ácidos</label>
-        <label><input type="checkbox" id="c-cirurgia" ${c.cirurgia ? 'checked' : ''}/> Cirurgia</label>
-        <label class="full">Qual cirurgia <textarea id="c-cirurgia-qual">${c.cirurgia_qual || ''}</textarea></label>
-        <label><input type="checkbox" id="c-anti" ${c.anticoncepcional ? 'checked' : ''}/> Anticoncepcional</label>
-        <label class="full">Qual anticoncepcional <textarea id="c-anti-qual">${c.anticoncepcional_qual || ''}</textarea></label>
-      </div>
-    </div>
-
-    <div id="tab-interesses" class="tab-pane hidden">
-      <div id="lista-interesses" class="lista-interesses"></div>
-    </div>
-
-    <label class="full">Observações <textarea id="c-obs">${c.observacoes || ''}</textarea></label>
-
-    <div class="modal-actions">
-      <button class="btn btn-ghost btn-fechar">Cancelar</button>
-      <button class="btn btn-primary" id="btn-salvar-cliente">Salvar</button>
-    </div>
-  `);
-
-  overlay.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab, btn));
+function filtrarClientes() {
+  const q = document.getElementById('busca-cliente').value.toLowerCase();
+  document.querySelectorAll('#tbody-clientes tr[data-nome]').forEach(tr => {
+    tr.style.display = tr.dataset.nome.includes(q) ? '' : 'none';
   });
+}
 
-  const listaInteresses = overlay.querySelector('#lista-interesses');
-  listaInteresses.innerHTML = procedimentos.map(p => `
-    <div class="interesse-item">
-      <label><input type="checkbox" class="chk-proc" value="${p.id}" ${interesseProc.includes(p.id) ? 'checked' : ''}/> ${p.nome}</label>
-    </div>
+// ── popular checkboxes de procedimentos ───────────────────────
+async function _popularProcs() {
+  const procs = await window.api.procedimentos.todos();
+
+  const listProc = document.getElementById('cli-proc-interesse-list');
+  listProc.innerHTML = procs.map(p => `
+    <label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer">
+      <input type="checkbox" value="${p.id}" data-laser="${p.is_laser || 0}"
+        onchange="_toggleFitzUI()"/>
+      ${p.nome}
+    </label>
   `).join('');
+}
 
-  overlay.querySelector('#btn-salvar-cliente').addEventListener('click', async () => {
-    const payload = {
-      id,
-      nome: overlay.querySelector('#c-nome').value.trim(),
-      data_nascimento: overlay.querySelector('#c-data').value || null,
-      cpf: overlay.querySelector('#c-cpf').value,
-      email: overlay.querySelector('#c-email').value,
-      telefone: overlay.querySelector('#c-telefone').value,
-      celular: overlay.querySelector('#c-celular').value,
-      endereco: overlay.querySelector('#c-endereco').value,
-      cidade: overlay.querySelector('#c-cidade').value,
-      uf: overlay.querySelector('#c-uf').value,
-      areas_tratar: overlay.querySelector('#c-areas').value,
-      metodo_dep_cera: overlay.querySelector('#c-met-cera').checked ? 1 : 0,
-      metodo_dep_lamina: overlay.querySelector('#c-met-lamina').checked ? 1 : 0,
-      metodo_dep_laser: overlay.querySelector('#c-met-laser').checked ? 1 : 0,
-      prob_encravamento: overlay.querySelector('#c-prob-encrav').checked ? 1 : 0,
-      prob_manchas: overlay.querySelector('#c-prob-manchas').checked ? 1 : 0,
-      prob_outros: overlay.querySelector('#c-prob-outros').value,
-      medicamento_uso: overlay.querySelector('#c-medicamento').checked ? 1 : 0,
-      medicamento_qual: overlay.querySelector('#c-medicamento-qual').value,
-      roacutan: overlay.querySelector('#c-roacutan').checked ? 1 : 0,
-      tto_vitiligo: overlay.querySelector('#c-vitiligo').checked ? 1 : 0,
-      alergia_medicamento: overlay.querySelector('#c-alergia').checked ? 1 : 0,
-      alergia_qual: overlay.querySelector('#c-alergia-qual').value,
-      tratamento_dermato: overlay.querySelector('#c-dermato').checked ? 1 : 0,
-      tratamento_dermato_qual: overlay.querySelector('#c-dermato-qual').value,
-      usa_acidos: overlay.querySelector('#c-acidos').checked ? 1 : 0,
-      cirurgia: overlay.querySelector('#c-cirurgia').checked ? 1 : 0,
-      cirurgia_qual: overlay.querySelector('#c-cirurgia-qual').value,
-      anticoncepcional: overlay.querySelector('#c-anti').checked ? 1 : 0,
-      anticoncepcional_qual: overlay.querySelector('#c-anti-qual').value,
-      observacoes: overlay.querySelector('#c-obs').value,
-    };
+// ── resetar formulário ────────────────────────────────────────
+function _resetForm() {
+  _set('cli-id', '');
+  ['cli-nome', 'cli-nasc', 'cli-cpf', 'cli-telefone',
+    'cli-endereco', 'cli-cidade', 'cli-uf', 'cli-prob-outros',
+    'cli-med-qual', 'cli-alergia-qual', 'cli-derm-qual', 'cli-cir-qual',
+    'cli-anti-qual', 'cli-onco-qual', 'cli-acomp-qual', 'cli-horm-qual',
+    'cli-obs', 'cli-sol-quando'
+  ].forEach(id => _set(id, ''));
 
-    if (!payload.nome) {
-      toast('Nome é obrigatório', 'erro');
-      return;
-    }
-
-    const res = await window.api.clientes.salvar(payload);
-    if (!res?.id) {
-      toast(res?.erro || 'Erro ao salvar cliente', 'erro');
-      return;
-    }
-
-    const clienteId = res.id;
-    const procedimentoIds = [...overlay.querySelectorAll('.chk-proc:checked')].map(i => Number(i.value));
-    await window.api.clienteProc.salvarInteresse({ clienteId, procedimentoIds });
-    await window.api.clienteVariantes.salvarInteresse({ clienteId, varianteIds: interesseVars || [] });
-
-    toast('Cliente salvo');
-    fechar();
-    renderClientes();
+  // NOVO: reseta os selects para "Selecione"
+  ['cli-olhos', 'cli-cabelos', 'cli-pelos'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.selectedIndex = 0;
   });
+
+  ['r-med', 'r-roac', 'r-vitil', 'r-alergia', 'r-derm', 'r-acidos',
+    'r-cir', 'r-anti', 'r-onco', 'r-acomp', 'r-epil', 'r-horm',
+    'r-hirsu', 'r-gest', 'r-lact', 'r-herpes', 'r-sol'
+  ].forEach(name => _setRadio(name, 0));
+
+  document.querySelectorAll('input[name="r-fitz"]').forEach(r => r.checked = false);
+  document.querySelectorAll('#cli-proc-interesse-list input').forEach(cb => cb.checked = false);
+  _toggleFitzUI();
+}
+
+// ── abrir novo ────────────────────────────────────────────────
+async function abrirNovoCliente() {
+  document.getElementById('modal-cliente-title').textContent = 'Nova Ficha de Anamnese';
+  await _popularProcs();
+  _resetForm();
+  switchTab('tab-dados', document.querySelector('.tab-btn'));
+  abrirModal('modal-cliente');
+}
+
+// ── editar ────────────────────────────────────────────────────
+async function editarCliente(id) {
+  const c = await window.api.clientes.buscar(id);
+  document.getElementById('modal-cliente-title').textContent = 'Editar Ficha — ' + c.nome;
+
+  await _popularProcs();
+  _resetForm();
+
+  // aba 1
+  _set('cli-id', c.id);
+  _set('cli-nome', c.nome);
+  _set('cli-nasc', c.data_nascimento);
+  _set('cli-cpf', c.cpf);
+  _set('cli-email', c.email);
+  _set('cli-telefone', c.telefone);
+  _set('cli-celular', c.celular);
+  _set('cli-endereco', c.endereco);
+  _set('cli-cidade', c.cidade);
+  _set('cli-uf', c.uf);
+
+  // aba 2 — procedimentos de interesse
+  const procIds = await window.api.clienteProc.getInteresse(id);
+  procIds.forEach(pid => {
+    const cb = document.querySelector(`#cli-proc-interesse-list input[value="${pid}"]`);
+    if (cb) cb.checked = true;
+  });
+  _toggleFitzUI();
+
+  // aba 3
+  _setRadio('r-med', c.medicamento_uso); _set('cli-med-qual', c.medicamento_qual);
+  _setRadio('r-roac', c.roacutan);
+  _setRadio('r-vitil', c.tto_vitiligo);
+  _setRadio('r-alergia', c.alergia_medicamento); _set('cli-alergia-qual', c.alergia_qual);
+  _setRadio('r-derm', c.tratamento_dermato); _set('cli-derm-qual', c.tratamento_dermato_qual);
+  _setRadio('r-acidos', c.usa_acidos);
+  _setRadio('r-cir', c.cirurgia); _set('cli-cir-qual', c.cirurgia_qual);
+  _setRadio('r-anti', c.anticoncepcional); _set('cli-anti-qual', c.anticoncepcional_qual);
+  _setRadio('r-onco', c.historico_oncologico); _set('cli-onco-qual', c.oncologico_qual);
+  _setRadio('r-acomp', c.acompanhamento_medico); _set('cli-acomp-qual', c.acompanhamento_qual);
+  _setRadio('r-epil', c.epilepsia);
+  _setRadio('r-horm', c.alteracao_hormonal); _set('cli-horm-qual', c.hormonal_qual);
+  _setRadio('r-hirsu', c.hirsutismo);
+  _setRadio('r-gest', c.gestante);
+  _setRadio('r-lact', c.lactante);
+  _setRadio('r-herpes', c.herpes);
+  _set('cli-obs', c.observacoes);
+
+  // aba 4
+  _set('cli-olhos', c.cor_olhos);
+  _set('cli-cabelos', c.cor_cabelos);
+  _set('cli-pelos', c.cor_pelos);
+  _setRadio('r-sol', c.tomou_sol);
+  _set('cli-sol-quando', c.sol_quando);
+  if (c.fitzpatrick) {
+    const fe = document.querySelector(`input[name="r-fitz"][value="${c.fitzpatrick}"]`);
+    if (fe) fe.checked = true;
+  }
+
+  switchTab('tab-dados', document.querySelector('.tab-btn'));
+  abrirModal('modal-cliente');
+}
+
+// ── salvar ────────────────────────────────────────────────────
+async function salvarCliente() {
+  const nome = _v('cli-nome').trim();
+  if (!nome) { toast('Nome é obrigatório', 'error'); return; }
+  if (!_v('cli-cpf').trim()) { toast('CPF é obrigatório', 'error'); return; }
+  if (!_v('cli-telefone').trim()) { toast('Telefone é obrigatório', 'error'); return; }
+
+  // CORRIGIDO: declarar temLaser aqui
+  const temLaser = !!document.querySelector('#cli-proc-interesse-list input[data-laser="1"]:checked');
+
+  const dados = {
+    id: _v('cli-id') || null,
+    nome,
+    data_nascimento: _v('cli-nasc'),
+    cpf: _v('cli-cpf'),
+    email: '',
+    telefone: _v('cli-telefone'),
+    celular: '',
+    endereco: _v('cli-endereco'),
+    cidade: _v('cli-cidade'),
+    uf: _v('cli-uf'),
+    areas_tratar: '',
+    metodo_dep_cera: 0, metodo_dep_lamina: 0, metodo_dep_laser: 0,
+    prob_encravamento: 0, prob_manchas: 0, prob_outros: '',
+    medicamento_uso: _radioVal('r-med'),
+    medicamento_qual: _v('cli-med-qual'),
+    roacutan: _radioVal('r-roac'),
+    tto_vitiligo: _radioVal('r-vitil'),
+    alergia_medicamento: _radioVal('r-alergia'),
+    alergia_qual: _v('cli-alergia-qual'),
+    tratamento_dermato: _radioVal('r-derm'),
+    tratamento_dermato_qual: _v('cli-derm-qual'),
+    usa_acidos: _radioVal('r-acidos'),
+    cirurgia: _radioVal('r-cir'),
+    cirurgia_qual: _v('cli-cir-qual'),
+    anticoncepcional: _radioVal('r-anti'),
+    anticoncepcional_qual: _v('cli-anti-qual'),
+    historico_oncologico: _radioVal('r-onco'),
+    oncologico_qual: _v('cli-onco-qual'),
+    acompanhamento_medico: _radioVal('r-acomp'),
+    acompanhamento_qual: _v('cli-acomp-qual'),
+    epilepsia: _radioVal('r-epil'),
+    alteracao_hormonal: _radioVal('r-horm'),
+    hormonal_qual: _v('cli-horm-qual'),
+    hirsutismo: _radioVal('r-hirsu'),
+    gestante: _radioVal('r-gest'),
+    herpes: _radioVal('r-herpes'),
+    lactante: _radioVal('r-lact'),
+    cor_olhos: _v('cli-olhos'),
+    cor_cabelos: _v('cli-cabelos'),
+    cor_pelos: _v('cli-pelos'),
+    tomou_sol: _radioVal('r-sol'),
+    sol_quando: _v('cli-sol-quando'),
+    fitzpatrick: temLaser ? _radioVal('r-fitz') : 0,
+    termo_assinado: 0,
+    observacoes: _v('cli-obs'),
+  };
+
+  await window.api.clientes.salvar(dados);
+  const clienteId = dados.id || await _getLastInsertedClienteId();
+
+  const procIds = _getCheckedIds('#cli-proc-interesse-list');
+  await window.api.clienteProc.salvarInteresse({ clienteId, procedimentoIds: procIds });
+
+  fecharModal('modal-cliente');
+  toast('Ficha salva com sucesso!', 'success');
+  renderClientes();
+}
+
+async function _getLastInsertedClienteId() {
+  const lista = await window.api.clientes.listar();
+  return lista[lista.length - 1]?.id;
+}
+
+// ── excluir ───────────────────────────────────────────────────
+async function excluirCliente(id) {
+  if (!confirm('Excluir este cliente?')) return;
+  await window.api.clientes.excluir(id);
+  toast('Cliente excluído.', 'info');
+  renderClientes();
 }

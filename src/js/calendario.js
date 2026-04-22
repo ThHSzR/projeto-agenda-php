@@ -2,168 +2,205 @@ let calView = 'dia';
 let calDate = new Date();
 
 async function renderCalendario() {
-  const container = document.getElementById('main-content');
+  const container = document.getElementById('page-calendario');
+
+  // Toolbar
+  const mesNome = calDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   container.innerHTML = `
-    <div class="page-header calendario-header">
-      <div>
-        <h1>Calendário</h1>
-        <p id="cal-subtitulo"></p>
-      </div>
-      <div class="calendar-controls">
-        <button class="btn btn-ghost" id="btn-prev">◀</button>
-        <button class="btn btn-ghost" id="btn-today">Hoje</button>
-        <button class="btn btn-ghost" id="btn-next">▶</button>
-        <select id="cal-view" class="input small">
-          <option value="dia">Dia</option>
-          <option value="semana">Semana</option>
-          <option value="mes">Mês</option>
-        </select>
-      </div>
+    <div class="page-header">
+      <h1>📅 Calendário</h1>
+      <button class="btn btn-primary" onclick="abrirNovoAgendamento()">+ Novo Agendamento</button>
     </div>
-    <div id="calendario-wrap"></div>
+    <div id="calendario-container">
+      <div class="cal-toolbar">
+        <button class="btn btn-secondary btn-sm" onclick="calNav(-1)">‹ Anterior</button>
+        <h2 id="cal-titulo" style="text-transform:capitalize">${mesNome}</h2>
+        <button class="btn btn-secondary btn-sm" onclick="calNav(1)">Próximo ›</button>
+        <div class="cal-view-btns">
+          <button onclick="calMudarView('dia')"    class="${calView==='dia'?'active':''}">Dia</button>
+          <button onclick="calMudarView('semana')" class="${calView==='semana'?'active':''}">Semana</button>
+          <button onclick="calMudarView('mes')"    class="${calView==='mes'?'active':''}">Mês</button>
+        </div>
+        <button class="btn btn-rosa btn-sm" onclick="calHoje()">Hoje</button>
+      </div>
+      <div id="cal-body"></div>
+    </div>
   `;
 
-  document.getElementById('cal-view').value = calView;
-  document.getElementById('btn-prev').onclick = () => navegarCalendario(-1);
-  document.getElementById('btn-next').onclick = () => navegarCalendario(1);
-  document.getElementById('btn-today').onclick = () => { calDate = new Date(); renderCalendario(); };
-  document.getElementById('cal-view').onchange = e => { calView = e.target.value; renderCalendario(); };
-
-  if (calView === 'dia') await renderCalendarioDia();
-  if (calView === 'semana') await renderCalendarioSemana();
-  if (calView === 'mes') await renderCalendarioMes();
+  await renderCalBody();
 }
 
-function navegarCalendario(delta) {
-  if (calView === 'dia') calDate.setDate(calDate.getDate() + delta);
-  if (calView === 'semana') calDate.setDate(calDate.getDate() + delta * 7);
-  if (calView === 'mes') calDate.setMonth(calDate.getMonth() + delta);
+async function renderCalBody() {
+  if (calView === 'mes')    await renderMes();
+  if (calView === 'semana') await renderSemana();
+  if (calView === 'dia')    await renderDia();
+}
+
+// ── MÊS ──────────────────────────────────────────────────────
+async function renderMes() {
+  const ano = calDate.getFullYear(), mes = calDate.getMonth();
+  const inicio = `${ano}-${String(mes+1).padStart(2,'0')}-01`;
+  const fim    = `${ano}-${String(mes+1).padStart(2,'0')}-31`;
+  const ags    = await window.api.agendamentos.listar({ data_inicio: inicio + ' 00:00:00', data_fim: fim + ' 23:59:59' });
+
+  const agMap = {};
+  ags.forEach(a => {
+    const d = a.data_hora.slice(0,10);
+    if (!agMap[d]) agMap[d] = [];
+    agMap[d].push(a);
+  });
+
+  const primeiroDia = new Date(ano, mes, 1).getDay();
+  const totalDias   = new Date(ano, mes + 1, 0).getDate();
+  const hojeStr     = hoje();
+  const dias = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+  let html = `<div class="cal-month">
+    <div class="cal-month-header">${dias.map(d=>`<div>${d}</div>`).join('')}</div>
+    <div class="cal-month-grid">`;
+
+  // Dias do mês anterior
+  const diasAnt = new Date(ano, mes, 0).getDate();
+  for (let i = primeiroDia - 1; i >= 0; i--) {
+    html += `<div class="cal-day outro-mes"><div class="dia-num">${diasAnt - i}</div></div>`;
+  }
+
+  for (let d = 1; d <= totalDias; d++) {
+    const dataStr = `${ano}-${String(mes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isHoje  = dataStr === hojeStr;
+    const eventos = agMap[dataStr] || [];
+    const evHtml  = eventos.slice(0,3).map(a =>
+      `<div class="cal-evento ${a.status}" title="${a.cliente_nome} - ${a.procedimento_nome}" onclick="event.stopPropagation();editarAgendamento(${a.id})">${fmtHora(a.data_hora)} ${a.cliente_nome}</div>`
+    ).join('') + (eventos.length > 3 ? `<div style="font-size:10px;color:var(--text-muted)">+${eventos.length-3} mais</div>` : '');
+
+    html += `<div class="cal-day${isHoje?' hoje':''}" onclick="calIrDia('${dataStr}')">
+      <div class="dia-num">${d}</div>${evHtml}</div>`;
+  }
+
+  // Completar última semana
+  const restante = (7 - ((primeiroDia + totalDias) % 7)) % 7;
+  for (let i = 1; i <= restante; i++) {
+    html += `<div class="cal-day outro-mes"><div class="dia-num">${i}</div></div>`;
+  }
+
+  html += `</div></div>`;
+  document.getElementById('cal-body').innerHTML = html;
+}
+
+// ── SEMANA ───────────────────────────────────────────────────
+async function renderSemana() {
+  const diaSemana = calDate.getDay();
+  const diasSemana = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(calDate);
+    d.setDate(calDate.getDate() - diaSemana + i);
+    diasSemana.push(d);
+  }
+
+  const inicio = diasSemana[0].toISOString().slice(0,10);
+  const fim    = diasSemana[6].toISOString().slice(0,10);
+  const ags    = await window.api.agendamentos.listar({
+    data_inicio: inicio + ' 00:00:00',
+    data_fim: fim + ' 23:59:59'
+  });
+
+  const agMap = {};
+  ags.forEach(a => {
+    const d = a.data_hora.slice(0,10);
+    const h = parseInt(a.data_hora.slice(11,13));
+    if (!agMap[d]) agMap[d] = {};
+    if (!agMap[d][h]) agMap[d][h] = [];
+    agMap[d][h].push(a);
+  });
+
+  const dias = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const hojeStr = hoje();
+
+  let html = `
+    <div class="cal-week-wrap">
+      <table class="cal-week-table">
+        <thead>
+          <tr>
+            <th class="cal-week-th-hora"></th>
+            ${diasSemana.map((d, i) => {
+              const ds = d.toISOString().slice(0,10);
+              const isHoje = ds === hojeStr;
+              return `<th class="cal-week-th-dia${isHoje ? ' hoje' : ''}">
+                <span>${dias[i]}</span>
+                <strong>${String(d.getDate()).padStart(2,'0')}</strong>
+              </th>`;
+            }).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${Array.from({ length: 15 }, (_, idx) => {
+            const h = idx + 7;
+            return `
+              <tr>
+                <td class="cal-week-hora">${String(h).padStart(2,'0')}:00</td>
+                ${diasSemana.map(d => {
+                  const ds = d.toISOString().slice(0,10);
+                  const eventos = (agMap[ds] && agMap[ds][h]) || [];
+                  return `<td class="cal-week-cell">
+                    ${eventos.map(a => `
+                      <div class="cal-agend-block" onclick="editarAgendamento(${a.id})">
+                        ${fmtHora(a.data_hora)} ${a.cliente_nome}
+                      </div>
+                    `).join('')}
+                  </td>`;
+                }).join('')}
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  document.getElementById('cal-body').innerHTML = html;
+}
+
+// ── DIA ───────────────────────────────────────────────────────
+async function renderDia() {
+  const dataStr = calDate.toISOString().slice(0,10);
+  const ags     = await window.api.agendamentos.listar({ data: dataStr });
+
+  let html = `<div class="cal-week">
+    <div class="cal-week-header" style="grid-template-columns: 52px 1fr">
+      <div></div>
+      <div style="text-align:center">${calDate.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}</div>
+    </div>
+    <div style="display:block;overflow-y:auto;max-height:600px">`;
+
+  for (let h = 7; h <= 21; h++) {
+    const eventos = ags.filter(a => parseInt(a.data_hora.slice(11,13)) === h);
+    html += `<div style="display:grid;grid-template-columns:52px 1fr;border-bottom:1px solid var(--border);min-height:52px">
+      <div class="cal-hour-label" style="padding-top:6px">${String(h).padStart(2,'0')}:00</div>
+      <div style="padding:4px">${eventos.map(a =>
+        `<div class="cal-agend-block" onclick="editarAgendamento(${a.id})">
+          ${fmtHora(a.data_hora)} — <strong>${a.cliente_nome}</strong> · ${a.procedimento_nome} · ${fmtMoeda(a.valor_cobrado)}
+          <span class="badge badge-${a.status}" style="margin-left:6px">${a.status}</span>
+        </div>`
+      ).join('')}</div>
+    </div>`;
+  }
+  html += `</div></div>`;
+  document.getElementById('cal-body').innerHTML = html;
+}
+
+// ── NAVEGAÇÃO ────────────────────────────────────────────────
+function calNav(dir) {
+  if (calView === 'mes')    calDate.setMonth(calDate.getMonth() + dir);
+  if (calView === 'semana') calDate.setDate(calDate.getDate() + dir * 7);
+  if (calView === 'dia')    calDate.setDate(calDate.getDate() + dir);
   renderCalendario();
 }
 
-async function renderCalendarioDia() {
-  const data = calDate.toISOString().split('T')[0];
-  const ags = await window.api.agendamentos.listar({ data });
-  document.getElementById('cal-subtitulo').textContent = calDate.toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+function calHoje() { calDate = new Date(); renderCalendario(); }
 
-  const horas = Array.from({ length: 13 }, (_, i) => i + 8);
-  const html = horas.map(h => {
-    const slot = ags.filter(a => new Date(a.data_hora).getHours() === h);
-    return `
-      <div class="cal-slot">
-        <div class="cal-time">${String(h).padStart(2,'0')}:00</div>
-        <div class="cal-events">
-          ${slot.map(a => cardEvento(a)).join('') || '<span class="muted">Livre</span>'}
-        </div>
-      </div>
-    `;
-  }).join('');
+function calMudarView(v) { calView = v; renderCalendario(); }
 
-  document.getElementById('calendario-wrap').innerHTML = `<div class="cal-dia">${html}</div>`;
-  bindEventoCalendario();
-}
-
-async function renderCalendarioSemana() {
-  const start = new Date(calDate);
-  const day = start.getDay();
-  const diff = (day === 0 ? -6 : 1) - day;
-  start.setDate(start.getDate() + diff);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 6);
-
-  const data_inicio = start.toISOString().split('T')[0] + ' 00:00:00';
-  const data_fim = end.toISOString().split('T')[0] + ' 23:59:59';
-  const ags = await window.api.agendamentos.listar({ data_inicio, data_fim });
-
-  document.getElementById('cal-subtitulo').textContent = `${start.toLocaleDateString('pt-BR')} — ${end.toLocaleDateString('pt-BR')}`;
-
-  const dias = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    const chave = d.toISOString().split('T')[0];
-    const itens = ags.filter(a => a.data_hora.startsWith(chave));
-    return `
-      <div class="cal-coluna">
-        <div class="cal-coluna-head">${d.toLocaleDateString('pt-BR', { weekday:'short', day:'2-digit', month:'2-digit' })}</div>
-        <div class="cal-coluna-body">
-          ${itens.map(a => cardEvento(a)).join('') || '<span class="muted">Sem agendamentos</span>'}
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  document.getElementById('calendario-wrap').innerHTML = `<div class="cal-semana">${dias}</div>`;
-  bindEventoCalendario();
-}
-
-async function renderCalendarioMes() {
-  const ano = calDate.getFullYear();
-  const mes = calDate.getMonth();
-  const primeiro = new Date(ano, mes, 1);
-  const ultimo = new Date(ano, mes + 1, 0);
-  const data_inicio = primeiro.toISOString().split('T')[0] + ' 00:00:00';
-  const data_fim = ultimo.toISOString().split('T')[0] + ' 23:59:59';
-  const ags = await window.api.agendamentos.listar({ data_inicio, data_fim });
-
-  document.getElementById('cal-subtitulo').textContent = primeiro.toLocaleDateString('pt-BR', { month:'long', year:'numeric' });
-
-  const inicioSemana = new Date(primeiro);
-  const ajuste = inicioSemana.getDay() === 0 ? -6 : 1 - inicioSemana.getDay();
-  inicioSemana.setDate(inicioSemana.getDate() + ajuste);
-
-  let html = '<div class="cal-mes-grid">';
-  ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'].forEach(d => {
-    html += `<div class="cal-mes-head">${d}</div>`;
-  });
-
-  for (let i = 0; i < 42; i++) {
-    const d = new Date(inicioSemana);
-    d.setDate(inicioSemana.getDate() + i);
-    const chave = d.toISOString().split('T')[0];
-    const itens = ags.filter(a => a.data_hora.startsWith(chave));
-    const outroMes = d.getMonth() !== mes;
-    html += `
-      <div class="cal-dia-box ${outroMes ? 'outro-mes' : ''}">
-        <div class="cal-dia-num">${d.getDate()}</div>
-        <div class="cal-dia-itens">
-          ${itens.slice(0,3).map(a => `<div class="mini-ev" data-id="${a.id}">${new Date(a.data_hora).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})} ${a.cliente_nome}</div>`).join('')}
-          ${itens.length > 3 ? `<div class="muted">+${itens.length - 3} mais</div>` : ''}
-        </div>
-      </div>
-    `;
-  }
-
-  html += '</div>';
-  document.getElementById('calendario-wrap').innerHTML = html;
-  bindEventoCalendario('.mini-ev');
-}
-
-function cardEvento(a) {
-  return `
-    <div class="cal-evento" data-id="${a.id}">
-      <strong>${new Date(a.data_hora).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}</strong>
-      <span>${a.cliente_nome}</span>
-      <small>${a.procedimento_nome || 'Procedimento'}</small>
-    </div>
-  `;
-}
-
-function bindEventoCalendario(selector = '.cal-evento') {
-  document.querySelectorAll(selector).forEach(el => {
-    el.addEventListener('click', async () => {
-      const ag = await window.api.agendamentos.buscar(el.dataset.id);
-      abrirModal(`
-        <h3>Agendamento</h3>
-        <p><strong>Cliente:</strong> ${ag.cliente_nome}</p>
-        <p><strong>Data/Hora:</strong> ${formatarDataHora(ag.data_hora)}</p>
-        <p><strong>Status:</strong> ${ag.status}</p>
-        <p><strong>Valor:</strong> ${formatarMoeda(ag.valor_cobrado)}</p>
-        <p><strong>Procedimentos:</strong> ${(ag.procs || []).map(p => p.procedimento_nome + (p.variante_nome ? ' — ' + p.variante_nome : '')).join(', ') || '—'}</p>
-        <p><strong>Observações:</strong> ${ag.observacoes || '—'}</p>
-        <div class="modal-actions">
-          <button class="btn btn-ghost btn-fechar">Fechar</button>
-        </div>
-      `);
-    });
-  });
+function calIrDia(dataStr) {
+  calDate = new Date(dataStr + 'T12:00');
+  calView = 'dia';
+  renderCalendario();
 }

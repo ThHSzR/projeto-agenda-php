@@ -1,185 +1,184 @@
-# Agenda PHP — Versão Corrigida
+# Agenda Pessoal — Clínica de Estética (PHP + MySQL)
 
-## Bugs corrigidos
+Sistema completo de agendamento para clínicas de estética e depilação a laser, desenvolvido em **PHP + MySQL** para hospedagem compartilhada (HostGator, Locaweb, etc.).
 
-### 🔴 Críticos (app não funcionava)
+## Funcionalidades
 
-| # | Arquivo | Problema | Correção |
-|---|---------|----------|----------|
-| 1 | `src/index.html` | `utils.js`, `api.js` e `calendario.js` carregados **2×** → `SyntaxError` fatal | Removida a primeira tripla de `<script>` duplicada |
-| 2 | `src/js/app.js` | Usava `.nav-btn` (inexistente); `#usuario-logado` e `#btn-logout` não existiam no HTML | Seletores corrigidos para `.nav-link`; elementos adicionados ao HTML |
-| 3 | `src/index.html` + todos os `*.js` | Render functions buscavam `#main-content` inexistente (`<main id="content">` no HTML) | `<main id="content">` renomeado para `<main id="main-content">` |
-| 4 | `src/index.html` | Abas Procedimentos/Financeiro/Usuários visíveis para todos os cargos | Adicionadas classes `gerente-only hidden` e `admin-only hidden` nos links corretos |
+| Módulo | Descrição |
+|---|---|
+| **Dashboard** | KPIs em tempo real: agendamentos do dia/semana, faturamento, taxa de conclusão, top procedimentos |
+| **Agendamentos** | CRUD completo com múltiplos procedimentos por sessão, cálculo automático de promoção, envio via WhatsApp |
+| **Clientes** | Ficha completa de anamnese (40+ campos), histórico de atendimentos |
+| **Procedimentos** | Cadastro com variantes (ex: Depilação a Laser → Axilas, Buço, Costas), preços e durações individuais |
+| **Promoções** | Sistema avançado com regras por procedimento/variante, modos lista fechada e quantidade mínima, vigência, dias da semana, limite de usos |
+| **Financeiro** | Resumo e detalhado por período, exportação CSV, promoção aplicada por agendamento |
+| **Relatórios** | Faturamento mensal (gráfico de barras) e ranking de clientes frequentes |
+| **Bloqueios** | Bloqueio de horários (almoço, manutenção, férias) com suporte a recorrência |
+| **Usuários** | Controle de acesso por cargo (admin, gerente, operador), troca de cargo inline |
+| **Log de Atividades** | Registro automático de todas as ações do sistema |
+| **Backup** | Download do banco completo em formato SQL |
 
-### 🟠 Graves (funcionalidades quebradas)
+## Requisitos
 
-| # | Arquivo | Problema | Correção |
-|---|---------|----------|----------|
-| 5 | `api.php` | `GROUP BY a.id` sem as demais colunas → `ERROR 1055` no MySQL 5.7+ (ONLY_FULL_GROUP_BY) | Adicionado `GROUP BY a.id, a.data_hora, a.status, a.valor_cobrado, c.nome` |
-| 6 | `api.php` | Save de agendamentos sem transação PDO → dados inconsistentes em caso de falha | Adicionados `beginTransaction()` / `commit()` / `rollBack()` |
-| 7 | `logout.php` | `session_destroy()` não remove o cookie — browser mantinha sessão fantasma | Adicionado `setcookie()` para expirar o cookie + `$_SESSION = []` |
-
-### 🟡 Médios (robustez e deployment)
-
-| # | Arquivo | Problema | Correção |
-|---|---------|----------|----------|
-| 8 | `src/js/api.js` | Caminho `/projeto-agenda-php/` hardcoded → quebra ao renomear a pasta | `_basePath` calculado dinamicamente via `location.pathname` |
-| 9 | `src/login.html` | Usava URL via rewrite (`/api/me`) dependendo do `.htaccess`; API JS usava `api.php?_route=` diretamente → inconsistência | Padronizado para usar `api.php?_route=` diretamente (igual ao `api.js`) |
-| 10 | `src/login.html` | Sem `.catch()` no fetch inicial → falha silenciosa de rede | Adicionado `try/catch` com mensagem de erro ao usuário |
-| 11 | `api.php` | CORS `Access-Control-Allow-Origin: *` — qualquer origem podia chamar a API | Refletido o `HTTP_ORIGIN` do request (mais seguro em produção) |
+- PHP 7.4+ (recomendado 8.0+)
+- MySQL 5.7+ ou MariaDB 10.3+
+- Extensão PDO habilitada
+- mod_rewrite habilitado (Apache)
 
 ---
 
-## Instalação e configuração
+## Instalação no HostGator
 
-### 1. Banco de dados
+### 1. Criar o banco de dados
 
-Execute o arquivo `migrate.sql` no seu banco MySQL/MariaDB:
+Acesse o **phpMyAdmin** pelo cPanel:
 
-```bash
-# Via CLI
-mysql -u root -p agenda_local < migrate.sql
+1. Vá em **Bancos de Dados MySQL** → crie um banco (ex: `seuusuario_agenda`)
+2. Crie um usuário MySQL e associe ao banco com **TODOS OS PRIVILÉGIOS**
+3. No phpMyAdmin, selecione o banco e clique em **Importar** → selecione o arquivo `migrate.sql`
 
-# Ou importe pelo phpMyAdmin em: http://localhost/phpmyadmin
-```
+### 2. Configurar credenciais
 
-Crie o banco antes se necessário:
-```sql
-CREATE DATABASE agenda_local CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
+Edite o arquivo `config.php` com as credenciais do seu banco:
 
-### 2. Configuração da conexão
-
-Edite `config.php`:
 ```php
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'agenda_local');
-define('DB_USER', 'root');
-define('DB_PASS', '');          // Sua senha do MySQL
+define('DB_NAME', 'seuusuario_agenda');
+define('DB_USER', 'seuusuario_user');
+define('DB_PASS', 'sua_senha_segura');
 ```
 
-### 3. Servidor web
+### 3. Upload dos arquivos
 
-#### XAMPP (desenvolvimento local)
-1. Coloque a pasta dentro de `htdocs/` (ex: `htdocs/projeto-agenda-php/`)
-2. Abra `src/index.html` — pelo `http://localhost/projeto-agenda-php/src/index.html`
-3. **Descomente** a linha `RewriteBase` no `.htaccess`:
-   ```
-   RewriteBase /projeto-agenda-php/
-   ```
-   (substitua pelo nome da sua pasta se for diferente)
+Via **Gerenciador de Arquivos** do cPanel ou FTP, envie todos os arquivos para a pasta `public_html` (ou subpasta):
 
-#### Produção (Apache na raiz do domínio)
-1. Suba os arquivos para a raiz do domínio
-2. Deixe `RewriteBase` comentado no `.htaccess`
-3. Garanta que `mod_rewrite` está ativo:
-   ```
-   a2enmod rewrite
-   ```
+```
+public_html/
+├── .htaccess
+├── api.php
+├── config.php
+├── db.php
+├── logger.php
+├── migrate.sql
+└── src/
+    ├── index.html
+    ├── login.html
+    ├── css/style.css
+    └── js/ (todos os .js)
+```
 
 ### 4. Primeiro acesso
 
-- URL: `http://localhost/projeto-agenda-php/src/index.html`
-- Usuário padrão criado automaticamente no **primeiro login**:
-  - **Usuário:** `admin`
-  - **Senha:** `admin123`
-- **Troque a senha imediatamente** em Usuários → Alterar senha
+Acesse `https://seudominio.com/src/login.html`
+
+**Credenciais padrão:**
+- Usuário: `admin`
+- Senha: `admin123`
+
+**Importante:** Troque a senha imediatamente após o primeiro login.
 
 ---
 
-## Estrutura de arquivos
+## Estrutura do Projeto
 
 ```
-projeto-agenda-php/
-├── api.php          ← API REST principal (todos os endpoints)
-├── config.php       ← Credenciais do banco e configurações
-├── db.php           ← Conexão PDO singleton
-├── logger.php       ← Log para app.log
-├── login.php        ← Redirect para src/login.html
-├── logout.php       ← Destrói sessão + cookie e redireciona
-├── migrate.sql      ← Cria todas as tabelas no MySQL
-├── .htaccess        ← Rotas amigáveis (Apache mod_rewrite)
+├── .htaccess          # Rewrite rules e segurança
+├── api.php            # Backend: 30+ endpoints REST
+├── config.php         # Credenciais do banco
+├── db.php             # Conexão PDO singleton
+├── logger.php         # Sistema de log
+├── migrate.sql        # Schema MySQL (13 tabelas)
 └── src/
-    ├── index.html   ← SPA principal
-    ├── login.html   ← Tela de login
-    ├── logo.png
+    ├── index.html     # SPA principal
+    ├── login.html     # Tela de login
     ├── css/
-    │   └── style.css
+    │   └── style.css  # Tema roxo/rosa profissional
     └── js/
-        ├── api.js           ← Camada de fetch para a API
-        ├── app.js           ← Inicialização, auth, navegação
-        ├── calendario.js    ← Visão dia/semana/mês
-        ├── agendamentos.js  ← CRUD de agendamentos
-        ├── clientes.js      ← CRUD de clientes + anamnese
-        ├── procedimentos.js ← CRUD de procedimentos e variantes
-        ├── financeiro.js    ← Resumo e detalhamento financeiro
-        ├── usuarios.js      ← Gestão de usuários (admin)
-        └── utils.js         ← Toast, modal, formatação
+        ├── api.js           # Camada de comunicação com backend
+        ├── app.js           # Roteamento SPA e sidebar
+        ├── agendamentos.js  # CRUD + cálculo automático de promoção
+        ├── bloqueios.js     # CRUD de bloqueios de horário
+        ├── calendario.js    # Visualização dia/semana/mês
+        ├── clientes.js      # Ficha de anamnese completa
+        ├── dashboard.js     # KPIs + top procedimentos
+        ├── financeiro.js    # Resumo + detalhado + CSV
+        ├── logs.js          # Visualização de log de atividades
+        ├── procedimentos.js # CRUD com variantes
+        ├── promocoes.js     # CRUD com regras de itens
+        ├── relatorios.js    # Faturamento mensal + clientes frequentes
+        ├── usuarios.js      # CRUD + troca de cargo + backup
+        └── utils.js         # Toast, modal, formatação
 ```
 
 ---
 
-## Como testar cada funcionalidade
+## Cargos e Permissões
 
-### ✅ Autenticação
-```
-1. Acesse /src/login.html
-2. Login com admin / admin123
-3. Deve redirecionar para index.html e mostrar "admin" na sidebar
-4. Logout → volta para login.html (verifique que não consegue voltar com F5)
-```
-
-### ✅ Controle de acesso por cargo
-```
-Crie 3 usuários: um operador, um gerente, um admin.
-- Operador: NÃO vê Procedimentos nem Financeiro na sidebar
-- Gerente:  VÊ Procedimentos e Financeiro; NÃO vê Usuários
-- Admin:    VÊ tudo, incluindo Usuários
-```
-
-### ✅ Calendário
-```
-Clique em Calendário → deve exibir visão "Dia" por padrão.
-Alterne para Semana e Mês. Use ◀ ▶ para navegar.
-```
-
-### ✅ Clientes
-```
-Clique em Clientes → + Novo → preencha Nome e salve.
-Edite o cliente → aba Anamnese → marque checkboxes → salve.
-Busca por nome/CPF/telefone deve filtrar a lista.
-```
-
-### ✅ Procedimentos (requer cargo gerente ou admin)
-```
-+ Novo procedimento → preencha → salve.
-Clique Variantes em um procedimento → adicione variantes.
-```
-
-### ✅ Agendamentos
-```
-+ Novo agendamento → selecione cliente, data/hora → adicione procedimento → salve.
-Verifique que o agendamento aparece no Calendário.
-Mude status para "concluído".
-```
-
-### ✅ Financeiro (requer cargo gerente ou admin)
-```
-Selecione um período com agendamentos → Filtrar.
-"Recebido" conta só status=concluído.
-"A receber" conta só status=agendado.
-```
-
-### ✅ Transação de agendamentos (teste de integridade)
-```
-Via phpMyAdmin, verifique que ao salvar um agendamento com múltiplos
-procedimentos, a tabela agendamento_procedimentos contém as linhas corretas
-e que não existem agendamentos "órfãos" sem procedimentos.
-```
+| Cargo | Pode fazer |
+|---|---|
+| **admin** | Tudo + gerenciar usuários + backup + logs |
+| **gerente** | Tudo exceto gerenciar usuários |
+| **operador** | Agendar, consultar clientes, ver procedimentos |
 
 ---
 
-## Diferenças arquiteturais em relação ao Node.js original
+## API Endpoints
+
+| Método | Rota | Descrição |
+|---|---|---|
+| POST | `/login` | Autenticação |
+| POST | `/logout` | Encerrar sessão |
+| GET | `/me` | Dados do usuário logado |
+| GET/POST | `/clientes` | CRUD de clientes |
+| GET | `/clientes/:id/historico` | Histórico de atendimentos |
+| GET/POST | `/cliente-procedimentos` | Procedimentos de interesse |
+| GET/POST | `/cliente-variantes` | Variantes de interesse |
+| GET/POST/DELETE | `/procedimentos` | CRUD de procedimentos |
+| GET/POST/DELETE | `/variantes` | CRUD de variantes |
+| GET/POST/DELETE | `/agendamentos` | CRUD de agendamentos |
+| PATCH | `/agendamentos/:id/status` | Alterar status |
+| GET/POST/DELETE | `/promocoes` | CRUD de promoções |
+| POST | `/promocoes/calcular` | Cálculo automático de desconto |
+| GET/POST/DELETE | `/bloqueios` | CRUD de bloqueios |
+| GET | `/financeiro/resumo` | Resumo financeiro |
+| GET | `/financeiro/detalhado` | Detalhado por período |
+| GET | `/dashboard` | KPIs e estatísticas |
+| GET | `/relatorios/faturamento-mensal` | Gráfico de faturamento |
+| GET | `/relatorios/clientes-frequentes` | Ranking de clientes |
+| GET | `/logs` | Log de atividades |
+| GET | `/backup` | Download SQL do banco |
+| GET/POST/DELETE | `/usuarios` | CRUD de usuários |
+| PATCH | `/usuarios/:id/cargo` | Trocar cargo |
+
+---
+
+## Bugs Corrigidos nesta Versão
+
+### Críticos
+
+| # | Problema | Correção |
+|---|----------|----------|
+| 1 | Scripts duplicados no `index.html` → `SyntaxError` fatal | Removida duplicação |
+| 2 | `app.js` usava seletores inexistentes (`.nav-btn`) | Corrigido para `.nav-link` |
+| 3 | `#main-content` vs `#content` inconsistente | Padronizado para `#main-content` |
+| 4 | `GROUP BY` incompleto → `ERROR 1055` no MySQL 5.7+ | Adicionadas colunas faltantes |
+| 5 | Agendamentos sem transação PDO | Adicionado `beginTransaction/commit/rollBack` |
+| 6 | Edição parcial de agendamento falhava (`cliente_id NULL`) | Busca dados atuais antes do UPDATE |
+| 7 | Regras de promoção sem `tipo_regra` → NOT NULL constraint | Inferência automática no backend |
+
+### Melhorias
+
+| # | Melhoria |
+|---|----------|
+| 1 | `api.js` com `_basePath` dinâmico (funciona em qualquer subpasta) |
+| 2 | CORS refletindo `HTTP_ORIGIN` em vez de `*` |
+| 3 | Rate limiting em `/login` (5 tentativas/minuto) |
+| 4 | Sessão com cookie seguro (`httponly`, `samesite`) |
+| 5 | Log de atividades automático em todas as ações |
+
+---
+
+## Diferenças em Relação ao Node.js Original
 
 | Aspecto | Node.js | PHP |
 |---------|---------|-----|
@@ -189,4 +188,9 @@ e que não existem agendamentos "órfãos" sem procedimentos.
 | Hash de senha | bcryptjs | `password_hash()` com `PASSWORD_BCRYPT` |
 | Transações | `db.transaction()` nativo | PDO `beginTransaction()` |
 | Rate limit | express-rate-limit | Arquivo JSON em `/tmp` |
-| Navegação SPA | `navegar()` com show/hide de `#page-*` | `navegarPara()` substitui `#main-content` |
+
+---
+
+## Licença
+
+Projeto privado. Todos os direitos reservados.

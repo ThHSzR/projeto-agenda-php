@@ -1,3 +1,7 @@
+# ═══════════════════════════════════════════════════════
+# Agenda Pessoal — .htaccess (Apache / HostGator)
+# ═══════════════════════════════════════════════════════
+
 Options -Indexes
 RewriteEngine On
 
@@ -8,22 +12,46 @@ RewriteEngine On
 # MODO PRODUÇÃO (raiz do domínio):
 #   - Deixe RewriteBase comentado.
 # ============================================================
-
 # RewriteBase /projeto-agenda-php/
 
-# Arquivos/pastas físicos — serve direto (exceto chamadas à API)
+# ── Segurança: bloquear acesso direto a arquivos sensíveis ──
+<FilesMatch "\.(env|sql|md|log)$">
+  Order Allow,Deny
+  Deny from all
+</FilesMatch>
+
+<FilesMatch "^(config|db|logger)\.php$">
+  Order Allow,Deny
+  Deny from all
+</FilesMatch>
+
+# ── Arquivos/pastas físicos → serve direto (exceto API) ──
 RewriteCond %{REQUEST_URI} !^(/[^/]+)?/api
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# Raiz → SPA
-RewriteRule ^$ src/index.html [L]
+# ── Raiz → login ──
+RewriteRule ^$ src/login.html [L]
 
-# Rotas da API → api.php
+# ── Rotas da API → api.php ──
 RewriteRule ^api/(.+)$ api.php?_route=$1 [QSA,L]
 RewriteRule ^api$       api.php          [QSA,L]
 
-# login / logout (acesso direto via URL amigável)
-RewriteRule ^login$  login.php  [L]
-RewriteRule ^logout$ logout.php [L]
+# ── Charset padrão ──
+AddDefaultCharset UTF-8
+
+# ── Cache de assets estáticos ──
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 week"
+  ExpiresByType application/javascript "access plus 1 week"
+  ExpiresByType image/png "access plus 1 month"
+  ExpiresByType image/jpeg "access plus 1 month"
+  ExpiresByType image/svg+xml "access plus 1 month"
+</IfModule>
+
+# ── Compressão gzip ──
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json
+</IfModule>

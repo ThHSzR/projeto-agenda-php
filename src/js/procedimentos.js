@@ -1,156 +1,186 @@
 async function renderProcedimentos() {
   const lista = await window.api.procedimentos.todos();
-  const main  = document.getElementById('main-content');
+  const page  = document.getElementById('page-procedimentos');
 
-  main.innerHTML = `
+  page.innerHTML = `
     <div class="page-header">
-      <h1>Procedimentos</h1>
-      <button class="btn btn-primary" id="btn-novo-procedimento">+ Novo</button>
+      <h1>💆 Procedimentos</h1>
+      <button class="btn btn-primary" onclick="abrirNovoProcedimento()">+ Novo Procedimento</button>
     </div>
-    <table class="tabela">
-      <thead><tr>
-        <th>Nome</th>
-        <th>Duração</th>
-        <th>Valor</th>
-        <th>Ativo</th>
-        <th>Ações</th>
-      </tr></thead>
-      <tbody id="tbody-procedimentos"></tbody>
-    </table>
-  `;
+    <div class="card">
+      <table>
+        <thead>
+          <tr><th>Nome</th><th>Duração / Variantes</th><th>Valor Padrão</th><th>Status</th><th>Ações</th></tr>
+        </thead>
+        <tbody>
+          ${lista.length === 0
+            ? `<tr><td colspan="5"><div class="empty-state"><div class="icon">💆</div><p>Nenhum procedimento cadastrado.</p></div></td></tr>`
+            : lista.map(p => `
+              <tr>
+                <td>
+                  <strong>${p.nome}</strong>
+                  ${p.descricao ? `<br><small style="color:var(--text-muted)">${p.descricao}</small>` : ''}
+                </td>
+                <td>${p.tem_variantes ? '<em style="color:var(--text-muted)">Ver variantes</em>' : p.duracao_min + ' min'}</td>
+                <td>${p.tem_variantes ? '—' : fmtMoeda(p.valor)}</td>
+                <td><span class="badge ${p.ativo ? 'badge-concluido' : 'badge-cancelado'}">${p.ativo ? 'Ativo' : 'Inativo'}</span></td>
+                <td>
+                  <button class="btn btn-info btn-sm" onclick="editarProcedimento(${p.id})">✏️ Editar</button>
+                  <button class="btn btn-danger btn-sm" onclick="inativarProcedimento(${p.id})">${p.ativo ? '🚫 Inativar' : '✅ Ativar'}</button>
+                </td>
+              </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
 
-  function renderLista(rows) {
-    document.getElementById('tbody-procedimentos').innerHTML = rows.map(p => `
-      <tr>
-        <td>${p.nome}</td>
-        <td>${p.duracao_min || 0} min</td>
-        <td>${formatarMoeda(p.valor)}</td>
-        <td>${p.ativo ? '✅' : '—'}</td>
-        <td>
-          <button class="btn btn-sm btn-ghost" data-id="${p.id}" data-action="editar">Editar</button>
-          <button class="btn btn-sm btn-danger" data-id="${p.id}" data-action="excluir">Desativar</button>
-          <button class="btn btn-sm btn-ghost" data-id="${p.id}" data-action="variantes">Variantes</button>
-        </td>
-      </tr>
-    `).join('');
+// ── variantes em memória (editadas no modal antes de salvar) ──
+let _variantesTemp = [];
 
-    document.querySelectorAll('[data-action="editar"]').forEach(btn => btn.addEventListener('click', () => abrirModalProcedimento(btn.dataset.id)));
-    document.querySelectorAll('[data-action="excluir"]').forEach(btn => btn.addEventListener('click', () => desativarProcedimento(btn.dataset.id)));
-    document.querySelectorAll('[data-action="variantes"]').forEach(btn => btn.addEventListener('click', () => abrirModalVariantes(btn.dataset.id)));
+function _renderVariantesTemp() {
+  const tbody = document.getElementById('variantes-tbody');
+  if (!tbody) return;
+  if (_variantesTemp.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">Nenhuma variante adicionada.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = _variantesTemp.map((v, i) => `
+    <tr>
+      <td>${v.nome}</td>
+      <td>${v.descricao || '—'}</td>
+      <td>${v.duracao_min} min</td>
+      <td>${fmtMoeda(v.valor)}</td>
+      <td>
+        <button class="btn btn-info btn-sm" onclick="_editarVarianteTemp(${i})">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="_removerVarianteTemp(${i})">🗑️</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function _editarVarianteTemp(i) {
+  const v = _variantesTemp[i];
+  document.getElementById('var-idx').value    = i;
+  document.getElementById('var-nome').value   = v.nome;
+  document.getElementById('var-desc').value   = v.descricao || '';
+  document.getElementById('var-dur').value    = v.duracao_min;
+  document.getElementById('var-valor').value  = v.valor;
+}
+
+function _removerVarianteTemp(i) {
+  _variantesTemp.splice(i, 1);
+  _renderVariantesTemp();
+}
+
+function _adicionarOuEditarVariante() {
+  const idx   = document.getElementById('var-idx').value;
+  const nome  = document.getElementById('var-nome').value.trim();
+  if (!nome) { toast('Nome da variante é obrigatório', 'error'); return; }
+  const v = {
+    nome,
+    descricao:   document.getElementById('var-desc').value.trim(),
+    duracao_min: parseInt(document.getElementById('var-dur').value)  || 30,
+    valor:       parseFloat(document.getElementById('var-valor').value) || 0,
+    ativo: 1,
+  };
+  if (idx !== '' && _variantesTemp[parseInt(idx)]?.id)
+    v.id = _variantesTemp[parseInt(idx)].id;
+
+  if (idx !== '') {
+    _variantesTemp[parseInt(idx)] = v;
+  } else {
+    _variantesTemp.push(v);
+  }
+  ['var-idx','var-nome','var-desc','var-dur','var-valor'].forEach(id => {
+    const e = document.getElementById(id); if (e) e.value = id === 'var-dur' ? '30' : '';
+  });
+  _renderVariantesTemp();
+}
+
+function _toggleVariantes() {
+  const temVar = document.getElementById('proc-tem-variantes').checked;
+  document.getElementById('proc-campos-fixos').classList.toggle('hidden', temVar);
+  document.getElementById('proc-campos-variantes').classList.toggle('hidden', !temVar);
+}
+
+function abrirNovoProcedimento() {
+  document.getElementById('modal-proc-title').textContent = 'Novo Procedimento';
+  document.getElementById('proc-id').value      = '';
+  document.getElementById('proc-nome').value    = '';
+  document.getElementById('proc-duracao').value = '60';
+  document.getElementById('proc-valor').value   = '';
+  document.getElementById('proc-desc').value    = '';
+  document.getElementById('proc-tem-variantes').checked = false;
+  _variantesTemp = [];
+  _toggleVariantes();
+  _renderVariantesTemp();
+  abrirModal('modal-procedimento');
+}
+
+async function editarProcedimento(id) {
+  const lista = await window.api.procedimentos.todos();
+  const p = lista.find(x => x.id === id);
+  if (!p) return;
+
+  document.getElementById('modal-proc-title').textContent = 'Editar Procedimento';
+  document.getElementById('proc-id').value      = p.id;
+  document.getElementById('proc-nome').value    = p.nome;
+  document.getElementById('proc-duracao').value = p.duracao_min;
+  document.getElementById('proc-valor').value   = p.valor;
+  document.getElementById('proc-desc').value    = p.descricao || '';
+  document.getElementById('proc-tem-variantes').checked = !!p.tem_variantes;
+
+  _variantesTemp = p.tem_variantes
+    ? await window.api.variantes.listar(p.id)
+    : [];
+
+  _toggleVariantes();
+  _renderVariantesTemp();
+  abrirModal('modal-procedimento');
+}
+
+async function salvarProcedimento() {
+  const nome = document.getElementById('proc-nome').value.trim();
+  if (!nome) { toast('Nome é obrigatório', 'error'); return; }
+
+  const temVariantes = document.getElementById('proc-tem-variantes').checked;
+
+  if (temVariantes && _variantesTemp.length === 0) {
+    toast('Adicione ao menos uma variante.', 'error'); return;
   }
 
-  async function desativarProcedimento(id) {
-    if (!await confirmar('Desativar este procedimento?')) return;
-    const res = await window.api.procedimentos.excluir(id);
-    if (res?.ok) { toast('Procedimento desativado'); renderProcedimentos(); }
-    else toast(res?.erro || 'Erro ao desativar', 'erro');
-  }
+  const procId = await window.api.procedimentos.salvar({
+    id:           document.getElementById('proc-id').value || null,
+    nome,
+    descricao:    document.getElementById('proc-desc').value,
+    duracao_min:  parseInt(document.getElementById('proc-duracao').value) || 60,
+    valor:        parseFloat(document.getElementById('proc-valor').value) || 0,
+    ativo:        1,
+    tem_variantes: temVariantes ? 1 : 0,
+  });
 
-  async function abrirModalProcedimento(id = null) {
-    const p = id ? lista.find(x => String(x.id) === String(id)) : {};
-    const { overlay, fechar } = abrirModal(`
-      <h3>${id ? 'Editar' : 'Novo'} Procedimento</h3>
-      <div class="form-grid">
-        <label>Nome <input id="p-nome" value="${p.nome || ''}" /></label>
-        <label>Duração (min) <input type="number" id="p-duracao" value="${p.duracao_min || 60}" /></label>
-        <label>Valor <input type="number" step="0.01" id="p-valor" value="${p.valor || 0}" /></label>
-        <label class="checkbox-label"><input type="checkbox" id="p-ativo" ${p.ativo !== 0 ? 'checked' : ''}/> Ativo</label>
-        <label class="checkbox-label"><input type="checkbox" id="p-laser" ${p.is_laser ? 'checked' : ''}/> É laser</label>
-        <label class="checkbox-label"><input type="checkbox" id="p-variantes" ${p.tem_variantes ? 'checked' : ''}/> Tem variantes</label>
-        <label class="full">Descrição <textarea id="p-desc">${p.descricao || ''}</textarea></label>
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost btn-fechar">Cancelar</button>
-        <button class="btn btn-primary" id="btn-salvar-proc">Salvar</button>
-      </div>
-    `);
-
-    overlay.querySelector('#btn-salvar-proc').addEventListener('click', async () => {
-      const payload = {
-        id: id || undefined,
-        nome: overlay.querySelector('#p-nome').value.trim(),
-        descricao: overlay.querySelector('#p-desc').value,
-        duracao_min: Number(overlay.querySelector('#p-duracao').value || 0),
-        valor: Number(overlay.querySelector('#p-valor').value || 0),
-        ativo: overlay.querySelector('#p-ativo').checked ? 1 : 0,
-        is_laser: overlay.querySelector('#p-laser').checked ? 1 : 0,
-        tem_variantes: overlay.querySelector('#p-variantes').checked ? 1 : 0,
-      };
-      if (!payload.nome) return toast('Nome obrigatório', 'erro');
-      const res = await window.api.procedimentos.salvar(payload);
-      if (res?.id) {
-        toast('Procedimento salvo');
-        fechar();
-        renderProcedimentos();
-      } else {
-        toast(res?.erro || 'Erro ao salvar', 'erro');
-      }
-    });
-  }
-
-  async function abrirModalVariantes(procedimentoId) {
-    const proc = lista.find(x => String(x.id) === String(procedimentoId));
-    const variantes = await window.api.variantes.listar(procedimentoId);
-
-    const { overlay, fechar } = abrirModal(`
-      <h3>Variantes — ${proc?.nome || ''}</h3>
-      <div id="lista-variantes"></div>
-      <hr class="divider"/>
-      <div class="form-grid">
-        <label>Nome <input id="v-nome" /></label>
-        <label>Duração (min) <input type="number" id="v-duracao" value="30" /></label>
-        <label>Valor <input type="number" step="0.01" id="v-valor" value="0" /></label>
-        <label class="full">Descrição <textarea id="v-desc"></textarea></label>
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost btn-fechar">Fechar</button>
-        <button class="btn btn-primary" id="btn-add-variante">Adicionar</button>
-      </div>
-    `);
-
-    function pintarVars(rows) {
-      overlay.querySelector('#lista-variantes').innerHTML = rows.map(v => `
-        <div class="proc-item">
-          <span>${v.nome}</span>
-          <span>${v.duracao_min || 0} min</span>
-          <span>${formatarMoeda(v.valor)}</span>
-          <button class="btn btn-sm btn-danger" data-id="${v.id}">Excluir</button>
-        </div>
-      `).join('') || '<p>Nenhuma variante cadastrada.</p>';
-
-      overlay.querySelectorAll('[data-id]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          if (!await confirmar('Excluir variante?')) return;
-          const res = await window.api.variantes.excluir(btn.dataset.id);
-          if (res?.ok) {
-            toast('Variante excluída');
-            abrirModalVariantes(procedimentoId);
-            fechar();
-          }
-        });
-      });
+  if (temVariantes) {
+    const variantesAtuais = await window.api.variantes.listar(procId);
+    const idsNovos = _variantesTemp.filter(v => v.id).map(v => v.id);
+    for (const va of variantesAtuais) {
+      if (!idsNovos.includes(va.id))
+        await window.api.variantes.excluir(va.id);
     }
-
-    pintarVars(variantes);
-
-    overlay.querySelector('#btn-add-variante').addEventListener('click', async () => {
-      const payload = {
-        procedimento_id: Number(procedimentoId),
-        nome: overlay.querySelector('#v-nome').value.trim(),
-        descricao: overlay.querySelector('#v-desc').value,
-        duracao_min: Number(overlay.querySelector('#v-duracao').value || 0),
-        valor: Number(overlay.querySelector('#v-valor').value || 0),
-      };
-      if (!payload.nome) return toast('Nome obrigatório', 'erro');
-      const res = await window.api.variantes.salvar(payload);
-      if (res?.id) {
-        toast('Variante adicionada');
-        abrirModalVariantes(procedimentoId);
-        fechar();
-      }
-    });
+    for (const v of _variantesTemp) {
+      await window.api.variantes.salvar({ ...v, procedimento_id: procId });
+    }
   }
 
-  renderLista(lista);
-  document.getElementById('btn-novo-procedimento').addEventListener('click', () => abrirModalProcedimento());
+  fecharModal('modal-procedimento');
+  toast('Procedimento salvo!', 'success');
+  renderProcedimentos();
+}
+
+async function inativarProcedimento(id) {
+  const lista = await window.api.procedimentos.todos();
+  const p = lista.find(x => x.id === id);
+  if (!p) return;
+  await window.api.procedimentos.salvar({ ...p, ativo: p.ativo ? 0 : 1 });
+  toast(p.ativo ? 'Procedimento inativado.' : 'Procedimento ativado.', 'info');
+  renderProcedimentos();
 }
