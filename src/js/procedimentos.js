@@ -149,15 +149,22 @@ async function salvarProcedimento() {
     toast('Adicione ao menos uma variante.', 'error'); return;
   }
 
-  const procId = await window.api.procedimentos.salvar({
-    id:           document.getElementById('proc-id').value || null,
+  const res = await window.api.procedimentos.salvar({
+    id:            document.getElementById('proc-id').value || null,
     nome,
-    descricao:    document.getElementById('proc-desc').value,
-    duracao_min:  parseInt(document.getElementById('proc-duracao').value) || 60,
-    valor:        parseFloat(document.getElementById('proc-valor').value) || 0,
-    ativo:        1,
+    descricao:     document.getElementById('proc-desc').value,
+    duracao_min:   parseInt(document.getElementById('proc-duracao').value) || 60,
+    valor:         parseFloat(document.getElementById('proc-valor').value) || 0,
+    ativo:         1,
     tem_variantes: temVariantes ? 1 : 0,
   });
+
+  const procId = res?.id ?? res;
+
+  if (!procId) {
+    toast('Erro ao salvar procedimento.', 'error');
+    return;
+  }
 
   if (temVariantes) {
     const variantesAtuais = await window.api.variantes.listar(procId);
