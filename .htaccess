@@ -1,0 +1,29 @@
+Options -Indexes
+RewriteEngine On
+
+# ── Segurança: bloquear acesso direto a arquivos sensíveis ──
+<FilesMatch "\.(env|sql|md|log)$">
+  Order Allow,Deny
+  Deny from all
+</FilesMatch>
+
+<FilesMatch "^(config|db|logger)\.php$">
+  Order Allow,Deny
+  Deny from all
+</FilesMatch>
+
+# ── Arquivos/pastas físicos → serve direto (exceto API) ──
+RewriteCond %{REQUEST_URI} !^(/[^/]+)?/api
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# ── Raiz → login ──
+RewriteRule ^$ src/login.html [L]
+
+# ── Rotas da API → api.php ──
+RewriteRule ^api/(.+)$ api.php?_route=$1 [QSA,L]
+RewriteRule ^api$       api.php          [QSA,L]
+
+# ── Charset padrão ──
+AddDefaultCharset UTF-8

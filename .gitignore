@@ -1,0 +1,26 @@
+# Arquivos sensíveis — NUNCA commitar
+config.local.php
+.env
+*.env
+
+# Logs
+app.log
+*.log
+
+# Arquivos de debug e utilitários temporários
+debug.php
+teste.php
+gerar_hash.php
+ver_log.php
+
+# Dump do banco
+*.sql.bak
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
