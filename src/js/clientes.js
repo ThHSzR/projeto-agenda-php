@@ -58,8 +58,14 @@ function abrirFormCliente(preenchido) {
   // resetar abas
   modal.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   modal.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
-  modal.querySelector('.tab-btn[data-tab="tab-dados"]').classList.add('active');
-  modal.querySelector('#tab-dados').classList.remove('hidden');
+  modal.querySelector('.tab-btn[data-tab="tab-dados"]')?.classList.add('active');
+  modal.querySelector('#tab-dados')?.classList.remove('hidden');
+
+  // ativar primeira aba manualmente (caso sem data-tab)
+  const firstTabBtn = modal.querySelector('.tab-btn');
+  const firstTabPanel = modal.querySelector('.tab-content');
+  if (firstTabBtn) firstTabBtn.classList.add('active');
+  if (firstTabPanel) firstTabPanel.classList.remove('hidden');
 
   // limpar form
   modal.querySelectorAll('input, textarea, select').forEach(el => {
@@ -67,7 +73,10 @@ function abrirFormCliente(preenchido) {
     else el.value = '';
   });
   document.getElementById('cli-id').value = '';
-  document.getElementById('cli-modal-title').textContent = 'Novo Cliente';
+  document.getElementById('cli-modal-title') &&
+    (document.getElementById('cli-modal-title').textContent = 'Novo Cliente');
+  document.getElementById('modal-cliente-title') &&
+    (document.getElementById('modal-cliente-title').textContent = 'Nova Ficha de Anamnese');
 
   if (preenchido) _preencherFormCliente(preenchido);
 }
@@ -93,44 +102,52 @@ function _radioVal(name) {
 }
 
 function _preencherFormCliente(c) {
-  document.getElementById('cli-modal-title').textContent = 'Editar Cliente';
+  document.getElementById('modal-cliente-title').textContent = 'Editar Cliente';
   document.getElementById('cli-id').value = c.id;
   _set('cli-nome', c.nome); _set('cli-nasc', c.data_nascimento?.substring(0,10));
   _set('cli-cpf', c.cpf);   _set('cli-email', c.email);
-  _set('cli-tel', c.telefone); _set('cli-cel', c.celular);
-  _set('cli-end', c.endereco); _set('cli-cid', c.cidade); _set('cli-uf', c.uf);
+  _set('cli-telefone', c.telefone); _set('cli-cel', c.celular);
+  _set('cli-endereco', c.endereco); _set('cli-cidade', c.cidade); _set('cli-uf', c.uf);
   _set('cli-obs', c.observacoes);
   _setCheck('cli-termo', c.termo_assinado);
 
-  // areas
-  _setCheck('dep-cera', c.metodo_dep_cera); _setCheck('dep-lamina', c.metodo_dep_lamina);
-  _setCheck('dep-laser', c.metodo_dep_laser);
-  _setCheck('prob-enc', c.prob_encravamento); _setCheck('prob-man', c.prob_manchas);
-  _setCheck('prob-out', c.prob_outros); _set('cli-areas', c.areas_tratar);
-
   // saúde
-  _setCheck('med-uso', c.medicamento_uso); _set('med-qual', c.medicamento_qual);
-  _setCheck('cli-roacutan', c.roacutan); _setCheck('cli-vitiligo', c.tto_vitiligo);
-  _setCheck('ali-med', c.alergia_medicamento); _set('ali-qual', c.alergia_qual);
-  _setCheck('tto-derm', c.tratamento_dermato); _set('tto-derm-qual', c.tratamento_dermato_qual);
-  _setCheck('cli-acidos', c.usa_acidos);
-  _setCheck('cli-cirurgia', c.cirurgia); _set('cli-cirurgia-qual', c.cirurgia_qual);
-  _setCheck('cli-antico', c.anticoncepcional); _set('cli-antico-qual', c.anticoncepcional_qual);
-  _setCheck('cli-onco', c.historico_oncologico); _set('cli-onco-qual', c.oncologico_qual);
-  _setCheck('cli-acomp', c.acompanhamento_medico); _set('cli-acomp-qual', c.acompanhamento_qual);
-  _setCheck('cli-epilepsia', c.epilepsia); _setCheck('cli-hormonal', c.alteracao_hormonal);
-  _set('cli-hormonal-qual', c.hormonal_qual);
-  _setCheck('cli-hirsutismo', c.hirsutismo); _setCheck('cli-gestante', c.gestante);
-  _setCheck('cli-herpes', c.herpes); _setCheck('cli-lactante', c.lactante);
+  _setRadio('r-med', c.medicamento_uso ? '1' : '0');
+  _set('cli-med-qual', c.medicamento_qual);
+  _setRadio('r-roac', c.roacutan ? '1' : '0');
+  _setRadio('r-vitil', c.tto_vitiligo ? '1' : '0');
+  _setRadio('r-alergia', c.alergia_medicamento ? '1' : '0');
+  _set('cli-alergia-qual', c.alergia_qual);
+  _setRadio('r-derm', c.tratamento_dermato ? '1' : '0');
+  _set('cli-derm-qual', c.tratamento_dermato_qual);
+  _setRadio('r-acidos', c.usa_acidos ? '1' : '0');
+  _setRadio('r-cir', c.cirurgia ? '1' : '0');
+  _set('cli-cir-qual', c.cirurgia_qual);
+  _setRadio('r-anti', c.anticoncepcional ? '1' : '0');
+  _set('cli-anti-qual', c.anticoncepcional_qual);
+  _setRadio('r-onco', c.historico_oncologico ? '1' : '0');
+  _set('cli-onco-qual', c.oncologico_qual);
+  _setRadio('r-acomp', c.acompanhamento_medico ? '1' : '0');
+  _set('cli-acomp-qual', c.acompanhamento_qual);
+  _setRadio('r-epil', c.epilepsia ? '1' : '0');
+  _setRadio('r-horm', c.alteracao_hormonal ? '1' : '0');
+  _set('cli-horm-qual', c.hormonal_qual);
+  _setRadio('r-hirsu', c.hirsutismo ? '1' : '0');
+  _setRadio('r-gest', c.gestante ? '1' : '0');
+  _setRadio('r-herpes', c.herpes ? '1' : '0');
+  _setRadio('r-lact', c.lactante ? '1' : '0');
 
   // físico/pele (agora dentro da aba Saúde)
-  _setRadio('r-olhos', c.cor_olhos); _setRadio('r-cabelos', c.cor_cabelos);
-  _setRadio('r-pelos', c.cor_pelos);
-  _setCheck('cli-sol', c.tomou_sol); _set('cli-sol-quando', c.sol_quando);
+  _set('cli-olhos', c.cor_olhos);
+  _set('cli-cabelos', c.cor_cabelos);
+  _set('cli-pelos', c.cor_pelos);
+  _setRadio('r-sol', c.tomou_sol ? '1' : '0');
+  _set('cli-sol-quando', c.sol_quando);
 
   // laser
   const temLaser = !!c.metodo_dep_laser;
-  document.getElementById('tab-btn-laser').style.display = temLaser ? '' : 'none';
+  const tabBtnLaser = document.getElementById('tab-btn-laser');
+  if (tabBtnLaser) tabBtnLaser.style.display = temLaser ? '' : 'none';
   if (temLaser) _preencherInteresses(c.id);
 }
 
@@ -162,79 +179,81 @@ async function editarCliente(id) {
 
 async function salvarCliente() {
   const id = document.getElementById('cli-id').value;
-  const temLaser = document.getElementById('dep-laser').checked;
+  const temLaser = document.getElementById('dep-laser')?.checked;
 
   const dados = {
     id:               id ? parseInt(id) : undefined,
     nome:             document.getElementById('cli-nome').value.trim(),
     data_nascimento:  document.getElementById('cli-nasc').value || null,
-    cpf:              document.getElementById('cli-cpf').value.trim(),
-    email:            document.getElementById('cli-email').value.trim(),
-    telefone:         document.getElementById('cli-tel').value.trim(),
-    celular:          document.getElementById('cli-cel').value.trim(),
-    endereco:         document.getElementById('cli-end').value.trim(),
-    cidade:           document.getElementById('cli-cid').value.trim(),
-    uf:               document.getElementById('cli-uf').value.trim(),
-    areas_tratar:     document.getElementById('cli-areas').value.trim(),
-    metodo_dep_cera:  document.getElementById('dep-cera').checked ? 1 : 0,
-    metodo_dep_lamina:document.getElementById('dep-lamina').checked ? 1 : 0,
+    cpf:              document.getElementById('cli-cpf')?.value.trim(),
+    email:            document.getElementById('cli-email')?.value.trim(),
+    telefone:         document.getElementById('cli-telefone').value.trim(),
+    celular:          document.getElementById('cli-cel')?.value.trim(),
+    endereco:         document.getElementById('cli-endereco')?.value.trim(),
+    cidade:           document.getElementById('cli-cidade')?.value.trim(),
+    uf:               document.getElementById('cli-uf')?.value.trim(),
+    areas_tratar:     document.getElementById('cli-areas')?.value.trim(),
+    metodo_dep_cera:  document.getElementById('dep-cera')?.checked ? 1 : 0,
+    metodo_dep_lamina:document.getElementById('dep-lamina')?.checked ? 1 : 0,
     metodo_dep_laser: temLaser ? 1 : 0,
-    prob_encravamento:document.getElementById('prob-enc').checked ? 1 : 0,
-    prob_manchas:     document.getElementById('prob-man').checked ? 1 : 0,
-    prob_outros:      document.getElementById('prob-out').checked ? 1 : 0,
+    prob_encravamento:document.getElementById('prob-enc')?.checked ? 1 : 0,
+    prob_manchas:     document.getElementById('prob-man')?.checked ? 1 : 0,
+    prob_outros:      document.getElementById('prob-out')?.checked ? 1 : 0,
     // saúde
-    medicamento_uso:       document.getElementById('med-uso').checked ? 1 : 0,
-    medicamento_qual:      document.getElementById('med-qual').value.trim(),
-    roacutan:              document.getElementById('cli-roacutan').checked ? 1 : 0,
-    tto_vitiligo:          document.getElementById('cli-vitiligo').checked ? 1 : 0,
-    alergia_medicamento:   document.getElementById('ali-med').checked ? 1 : 0,
-    alergia_qual:          document.getElementById('ali-qual').value.trim(),
-    tratamento_dermato:    document.getElementById('tto-derm').checked ? 1 : 0,
-    tratamento_dermato_qual:document.getElementById('tto-derm-qual').value.trim(),
-    usa_acidos:            document.getElementById('cli-acidos').checked ? 1 : 0,
-    cirurgia:              document.getElementById('cli-cirurgia').checked ? 1 : 0,
-    cirurgia_qual:         document.getElementById('cli-cirurgia-qual').value.trim(),
-    anticoncepcional:      document.getElementById('cli-antico').checked ? 1 : 0,
-    anticoncepcional_qual: document.getElementById('cli-antico-qual').value.trim(),
-    historico_oncologico:  document.getElementById('cli-onco').checked ? 1 : 0,
-    oncologico_qual:       document.getElementById('cli-onco-qual').value.trim(),
-    acompanhamento_medico: document.getElementById('cli-acomp').checked ? 1 : 0,
-    acompanhamento_qual:   document.getElementById('cli-acomp-qual').value.trim(),
-    epilepsia:             document.getElementById('cli-epilepsia').checked ? 1 : 0,
-    alteracao_hormonal:    document.getElementById('cli-hormonal').checked ? 1 : 0,
-    hormonal_qual:         document.getElementById('cli-hormonal-qual').value.trim(),
-    hirsutismo:            document.getElementById('cli-hirsutismo').checked ? 1 : 0,
-    gestante:              document.getElementById('cli-gestante').checked ? 1 : 0,
-    herpes:                document.getElementById('cli-herpes').checked ? 1 : 0,
-    lactante:              document.getElementById('cli-lactante').checked ? 1 : 0,
+    medicamento_uso:        _radioVal('r-med') === '1' ? 1 : 0,
+    medicamento_qual:       document.getElementById('cli-med-qual')?.value.trim(),
+    roacutan:               _radioVal('r-roac') === '1' ? 1 : 0,
+    tto_vitiligo:           _radioVal('r-vitil') === '1' ? 1 : 0,
+    alergia_medicamento:    _radioVal('r-alergia') === '1' ? 1 : 0,
+    alergia_qual:           document.getElementById('cli-alergia-qual')?.value.trim(),
+    tratamento_dermato:     _radioVal('r-derm') === '1' ? 1 : 0,
+    tratamento_dermato_qual:document.getElementById('cli-derm-qual')?.value.trim(),
+    usa_acidos:             _radioVal('r-acidos') === '1' ? 1 : 0,
+    cirurgia:               _radioVal('r-cir') === '1' ? 1 : 0,
+    cirurgia_qual:          document.getElementById('cli-cir-qual')?.value.trim(),
+    anticoncepcional:       _radioVal('r-anti') === '1' ? 1 : 0,
+    anticoncepcional_qual:  document.getElementById('cli-anti-qual')?.value.trim(),
+    historico_oncologico:   _radioVal('r-onco') === '1' ? 1 : 0,
+    oncologico_qual:        document.getElementById('cli-onco-qual')?.value.trim(),
+    acompanhamento_medico:  _radioVal('r-acomp') === '1' ? 1 : 0,
+    acompanhamento_qual:    document.getElementById('cli-acomp-qual')?.value.trim(),
+    epilepsia:              _radioVal('r-epil') === '1' ? 1 : 0,
+    alteracao_hormonal:     _radioVal('r-horm') === '1' ? 1 : 0,
+    hormonal_qual:          document.getElementById('cli-horm-qual')?.value.trim(),
+    hirsutismo:             _radioVal('r-hirsu') === '1' ? 1 : 0,
+    gestante:               _radioVal('r-gest') === '1' ? 1 : 0,
+    herpes:                 _radioVal('r-herpes') === '1' ? 1 : 0,
+    lactante:               _radioVal('r-lact') === '1' ? 1 : 0,
     // físico/pele (agora na aba Saúde)
-    cor_olhos:   _radioVal('r-olhos'),
-    cor_cabelos: _radioVal('r-cabelos'),
-    cor_pelos:   _radioVal('r-pelos'),
-    tomou_sol:   document.getElementById('cli-sol').checked ? 1 : 0,
-    sol_quando:  document.getElementById('cli-sol-quando').value.trim(),
-    fitzpatrick: 0, // gerenciado pelo prontuário
-    termo_assinado: document.getElementById('cli-termo').checked ? 1 : 0,
-    observacoes:    document.getElementById('cli-obs').value.trim(),
+    cor_olhos:   document.getElementById('cli-olhos')?.value || null,
+    cor_cabelos: document.getElementById('cli-cabelos')?.value || null,
+    cor_pelos:   document.getElementById('cli-pelos')?.value || null,
+    tomou_sol:   _radioVal('r-sol') === '1' ? 1 : 0,
+    sol_quando:  document.getElementById('cli-sol-quando')?.value.trim(),
+    // fitzpatrick gerenciado pelo prontuário
+    fitzpatrick: 0,
+    termo_assinado: document.getElementById('cli-termo')?.checked ? 1 : 0,
+    observacoes: document.getElementById('cli-obs')?.value.trim(),
   };
 
   if (!dados.nome) { toast('Nome é obrigatório', 'error'); return; }
+  if (!dados.telefone) { toast('Telefone é obrigatório', 'error'); return; }
 
   try {
-    const resp = await window.api.clientes.salvar(dados);
-    const cid  = resp.id || parseInt(id);
+    const res = await window.api.clientes.salvar(dados);
+    const clienteId = res.id || parseInt(id);
 
     if (temLaser) {
-      const procIds = [...document.querySelectorAll('.laser-proc-cb:checked')].map(el => parseInt(el.value));
-      const varIds  = [...document.querySelectorAll('.laser-var-cb:checked')].map(el => parseInt(el.value));
-      await Promise.all([
-        window.api.clienteProc.salvar(cid, procIds),
-        window.api.clienteVariantes.salvar(cid, varIds),
-      ]);
+      const procIds = [...document.querySelectorAll('#cli-proc-interesse-list input[type=checkbox]:checked')]
+        .map(el => parseInt(el.dataset.procId)).filter(Boolean);
+      const varIds = [...document.querySelectorAll('#cli-proc-interesse-list input[type=checkbox][data-var-id]:checked')]
+        .map(el => parseInt(el.dataset.varId)).filter(Boolean);
+      await window.api.clienteProc.salvar({ clienteId, procedimentoIds: procIds });
+      if (varIds.length) await window.api.clienteVariantes.salvar({ clienteId, varianteIds: varIds });
     }
 
     fecharModal('modal-cliente');
-    toast('Cliente salvo!', 'success');
+    toast(id ? 'Cliente atualizado!' : 'Cliente cadastrado!', 'success');
     await carregarClientes();
   } catch (e) {
     toast('Erro ao salvar: ' + e.message, 'error');
@@ -248,6 +267,6 @@ async function excluirCliente(id) {
     toast('Cliente excluído.', 'info');
     await carregarClientes();
   } catch (e) {
-    toast('Erro: ' + e.message, 'error');
+    toast('Erro ao excluir: ' + e.message, 'error');
   }
 }
