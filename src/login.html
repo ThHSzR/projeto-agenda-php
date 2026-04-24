@@ -34,13 +34,10 @@
   <script>
     // Calcula base path dinamicamente — funciona em qualquer subpasta
     const _basePath = location.pathname.replace(/\/src\/.*$/, '');
-    const _isLocal  = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 
-    // URL da API: usa api.php direto em dev (igual ao api.js) — evita dependência do .htaccess
+    // URL da API: usa api.php direto — funciona em dev e produção
     function apiUrl(rota) {
-      return _isLocal
-        ? `${_basePath}/api.php?_route=${rota}`
-        : `/api/${rota}`;
+      return `${_basePath}/api.php?_route=${rota}`;
     }
 
     // Se já está logado, vai direto para a app
