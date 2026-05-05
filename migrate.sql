@@ -194,3 +194,20 @@ CREATE TABLE IF NOT EXISTS log_atividades (
   criado_em   DATETIME     DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ══════════════════════════════════════════════════════════════
+-- PRONTUÁRIO — Histórico clínico por cliente
+-- ══════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS prontuario (
+  id             INT AUTO_INCREMENT PRIMARY KEY,
+  cliente_id     INT          NOT NULL,
+  agendamento_id INT          NULL,
+  tipo           VARCHAR(20)  NOT NULL DEFAULT 'anotacao',
+  -- tipo = 'atendimento' → criado automaticamente ao concluir agendamento (imutável)
+  -- tipo = 'anotacao'    → criado/editado/deletado manualmente pelo usuário
+  fitzpatrick    TINYINT      DEFAULT 0,
+  anotacao       TEXT,
+  criado_em      DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (cliente_id)     REFERENCES clientes(id) ON DELETE CASCADE,
+  FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
