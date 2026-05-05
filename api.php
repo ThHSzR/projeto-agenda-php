@@ -553,6 +553,112 @@ if ($parts[0] === 'agendamentos') {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+//  PRONTUÁRIO
+// ══════════════════════════════════════════════════════════════════════════════
+if ($parts[0] === 'prontuario') {
+    auth_required();
+    $db = getDb();
+
+    // GET /prontuario?cliente_id=X
+    if ($method === 'GET' && count($parts) === 1) {
+        $cid = (int)($_GET['cliente_id'] ?? 0);
+        if (!$cid) json_out(['erro' => 'cliente_id obrigatório'], 400);
+
+        $s = $db->prepare("
+            SELECT
+                pr.id,
+                pr.cliente_id,
+                pr.agendamento_id,
+                pr.tipo,
+                pr.fitzpatrick,
+                pr.anotacao,
+                pr.criado_em,
+                a.data_hora        AS agend_data_hora,
+                a.status           AS agend_status,
+                a.valor_cobrado    AS agend_valor,
+                GROUP_CONCAT(p.nome ORDER BY p.nome SEPARATOR ', ') AS agend_procedimentos
+            FROM prontuario pr
+            LEFT JOIN agendamentos a ON a.id = pr.agendamento_id
+            LEFT JOIN agendamento_procedimentos ap ON ap.agendamento_id = a.id
+            LEFT JOIN procedimentos p ON p.id = ap.procedimento_id
+            WHERE pr.cliente_id = ?
+            GROUP BY pr.id, pr.cliente_id, pr.agendamento_id, pr.tipo,
+                     pr.fitzpatrick, pr.anotacao, pr.criado_em,
+                     a.data_hora, a.status, a.valor_cobrado
+            ORDER BY pr.criado_em DESC
+        ");
+        $s->execute([$cid]);
+        json_out($s->fetchAll());
+    }
+
+    // POST /prontuario
+    if ($method === 'POST' && count($parts) === 1) {
+        $d = body();
+        $cid   = (int)($d['cliente_id'] ?? 0);
+        $tipo  = in_array($d['tipo'] ?? '', ['atendimento', 'anotacao']) ? $d['tipo'] : 'anotacao';
+        $agId  = !empty($d['agendamento_id']) ? (int)$d['agendamento_id'] : null;
+        $fitz  = (int)($d['fitzpatrick'] ?? 0);
+        $nota  = trim($d['anotacao'] ?? '');
+        if (!$cid) json_out(['erro' => 'cliente_id obrigatório'], 400);
+
+        // Impedir duplicata: um agendamento só pode gerar UMA entrada tipo 'atendimento'
+        if ($tipo === 'atendimento' && $agId) {
+            $chk = $db->prepare("SELECT id FROM prontuario WHERE agendamento_id = ? AND tipo = 'atendimento'");
+            $chk->execute([$agId]);
+            if ($chk->fetch()) json_out(['erro' => 'Atendimento já registrado no prontuário'], 409);
+        }
+
+        $db->prepare(
+            "INSERT INTO prontuario (cliente_id, agendamento_id, tipo, fitzpatrick, anotacao)
+             VALUES (?, ?, ?, ?, ?)"
+        )->execute([$cid, $agId, $tipo, $fitz, $nota ?: null]);
+        $newId = (int)$db->lastInsertId();
+        logAtividade($db, $_SESSION['userId'] ?? null, 'criar_prontuario', 'prontuario', $newId, null);
+        json_out(['id' => $newId]);
+    }
+
+    // PATCH /prontuario/:id
+    if ($method === 'PATCH' && count($parts) === 2) {
+        $pid = (int)$parts[1];
+        $d   = body();
+
+        $chk = $db->prepare("SELECT tipo FROM prontuario WHERE id = ?");
+        $chk->execute([$pid]);
+        $row = $chk->fetch();
+        if (!$row) json_out(['erro' => 'Entrada não encontrada'], 404);
+
+        $fields = [];
+        $values = [];
+        if (array_key_exists('fitzpatrick', $d)) {
+            $fields[] = 'fitzpatrick = ?';
+            $values[] = (int)$d['fitzpatrick'];
+        }
+        if (array_key_exists('anotacao', $d)) {
+            if ($row['tipo'] !== 'anotacao') json_out(['erro' => 'Não é possível editar o texto de um atendimento'], 403);
+            $fields[] = 'anotacao = ?';
+            $values[] = trim($d['anotacao'] ?? '');
+        }
+        if (empty($fields)) json_out(['erro' => 'Nenhum campo para atualizar'], 400);
+        $values[] = $pid;
+        $db->prepare("UPDATE prontuario SET " . implode(', ', $fields) . " WHERE id = ?")->execute($values);
+        json_out(['ok' => true]);
+    }
+
+    // DELETE /prontuario/:id
+    if ($method === 'DELETE' && count($parts) === 2) {
+        $pid = (int)$parts[1];
+        $chk = $db->prepare("SELECT tipo FROM prontuario WHERE id = ?");
+        $chk->execute([$pid]);
+        $row = $chk->fetch();
+        if (!$row) json_out(['erro' => 'Entrada não encontrada'], 404);
+        if ($row['tipo'] !== 'anotacao') json_out(['erro' => 'Registros de atendimento não podem ser excluídos'], 403);
+        $db->prepare("DELETE FROM prontuario WHERE id = ?")->execute([$pid]);
+        logAtividade($db, $_SESSION['userId'] ?? null, 'excluir_prontuario', 'prontuario', $pid, null);
+        json_out(['ok' => true]);
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 //  FINANCEIRO
 // ══════════════════════════════════════════════════════════════════════════════
 if ($parts[0] === 'financeiro') {
@@ -933,7 +1039,7 @@ if ($parts[0] === 'promocoes') {
             foreach ($regras as $r) {
                 $tipo = $r['tipo_regra'] ?? null;
                 if (!$tipo) {
-                    if (!empty($r['variante_id']))     $tipo = 'variante';
+                    if (!empty($r['variante_id']))         $tipo = 'variante';
                     elseif (!empty($r['procedimento_id'])) $tipo = 'procedimento';
                     else                                    $tipo = 'categoria_laser';
                 }
