@@ -114,7 +114,6 @@ const api = {
   },
   backup: {
     download: () => {
-      // Backup é um download direto, não JSON
       let url;
       if (_isLocal) {
         url = `${_basePath}/api.php?_route=backup`;
@@ -131,6 +130,12 @@ const api = {
   clienteVariantes: {
     getInteresse:    (id) => api._fetch('GET', `/cliente-variantes/${id}`),
     salvarInteresse: (p)  => api._fetch('POST', '/cliente-variantes', p),
+  },
+  prontuario: {
+    listar:  (clienteId) => api._fetch('GET', `/prontuario?cliente_id=${clienteId}`),
+    criar:   (d) => api._fetch('POST', '/prontuario', d),
+    editar:  (id, d) => api._fetch('PATCH', `/prontuario/${id}`, d),
+    excluir: (id) => api._fetch('DELETE', `/prontuario/${id}`),
   },
 };
 
