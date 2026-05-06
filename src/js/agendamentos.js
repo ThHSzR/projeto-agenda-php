@@ -184,7 +184,6 @@ async function _agendRecalcularPromocao() {
     _agendPromocaoAtual = null;
     promoBox.innerHTML  = '';
     _agendRecalcular();
-    // Atualiza valor com subtotal sem promoção
     const subtotal = itens.reduce((s, it) => s + (parseFloat(it.valor) || 0), 0);
     const campoValor = document.getElementById('agend-valor');
     if (!campoValor.dataset.manualOverride || campoValor.dataset.manualOverride !== '1') {
@@ -385,7 +384,6 @@ async function editarAgendamento(id) {
   _agendProcsModal = [];
   _agendResetPromo();
 
-  // Se havia promoção salva no agendamento, pré-carrega
   if (a.promocao_uso) {
     _agendAplicarPromoAuto = false;
     _agendPromoOverrideId  = a.promocao_uso.promocao_id;
@@ -418,7 +416,7 @@ async function salvarAgendamento() {
   await _agendRecalcularPromocao();
 
   try {
-    await window.api.agendamentos.salvar({
+    const resultado = await window.api.agendamentos.salvar({
       id:               document.getElementById('agend-id').value || null,
       cliente_id:       parseInt(clienteId),
       data_hora:        toDbDatetime(dataHora),
@@ -436,6 +434,25 @@ async function salvarAgendamento() {
 
     fecharModal('modal-agendamento');
     toast('Agendamento salvo!', 'success');
+
+    // Criar registro no prontuário ao concluir agendamento
+    const statusSalvo = document.getElementById('agend-status').value;
+    const clienteIdSalvo = parseInt(document.getElementById('agend-cliente').value);
+    if (statusSalvo === 'concluido' && clienteIdSalvo) {
+      try {
+        await window.api.prontuario.criar({
+          cliente_id:     clienteIdSalvo,
+          agendamento_id: resultado.id,
+          tipo:           'atendimento',
+          fitzpatrick:    0,
+          anotacao:       null,
+        });
+      } catch (e) {
+        // Se já existe (409), ignorar silenciosamente
+        if (!e.message?.includes('409')) console.warn('Prontuário:', e.message);
+      }
+    }
+
     const paginaAtiva = document.querySelector('.page:not(.hidden)');
     if (paginaAtiva?.id === 'page-agendamentos') renderAgendamentos();
     if (paginaAtiva?.id === 'page-calendario')   renderCalendario();

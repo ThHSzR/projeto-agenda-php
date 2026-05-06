@@ -302,7 +302,6 @@
           <button class="tab-btn active" onclick="switchTab('tab-dados',this)">📋 Dados Pessoais</button>
           <button class="tab-btn" onclick="switchTab('tab-proc',this)">💆 Procedimentos</button>
           <button class="tab-btn" onclick="switchTab('tab-saude',this)">🏥 Saúde</button>
-          <button class="tab-btn" onclick="switchTab('tab-fisico',this)">🧬 Físico / Pele</button>
         </div>
 
         <!-- ABA 1 — DADOS PESSOAIS -->
@@ -441,10 +440,10 @@
             <label>Observações gerais</label>
             <textarea id="cli-obs" rows="3"></textarea>
           </div>
-        </div>
 
-        <!-- ABA 4 — FÍSICO / PELE -->
-        <div id="tab-fisico" class="tab-content hidden" style="min-height:420px">
+          <!-- ── Físico / Pele (unificado na aba Saúde) ── -->
+          <hr style="margin:18px 0;border-color:var(--border)"/>
+          <p class="section-label" style="margin-bottom:10px">🧬 Características Físicas</p>
           <div class="form-row">
             <div class="form-group">
               <label>Cor dos olhos</label>
@@ -490,26 +489,6 @@
             <label><input type="radio" name="r-sol" value="0" checked /> Não</label>
             <input type="text" id="cli-sol-quando" placeholder="Quando?" class="inline-input" />
           </div>
-
-          <div id="cli-fitz-section" class="hidden">
-            <div class="form-group" style="margin-top:20px">
-              <label>Classificação Fitzpatrick — Como sua pele reage ao sol?</label>
-              <div class="fitzpatrick-grid">
-                <label class="fitz-option"><input type="radio" name="r-fitz" value="1" /> <span><strong>Tipo I</strong>
-                    — Sempre queima, nunca bronzeia</span></label>
-                <label class="fitz-option"><input type="radio" name="r-fitz" value="2" /> <span><strong>Tipo II</strong>
-                    — Sempre queima, bronzeia com dificuldade</span></label>
-                <label class="fitz-option"><input type="radio" name="r-fitz" value="3" /> <span><strong>Tipo
-                      III</strong> — Às vezes queima, sempre bronzeia</span></label>
-                <label class="fitz-option"><input type="radio" name="r-fitz" value="4" /> <span><strong>Tipo IV</strong>
-                    — Raramente queima, bronzeia facilmente</span></label>
-                <label class="fitz-option"><input type="radio" name="r-fitz" value="5" /> <span><strong>Tipo V</strong>
-                    — Queima muito raramente, bronzeia muito facilmente</span></label>
-                <label class="fitz-option"><input type="radio" name="r-fitz" value="6" /> <span><strong>Tipo VI</strong>
-                    — Nunca queima, bronzeia muito facilmente</span></label>
-              </div>
-            </div>
-          </div>
         </div>
 
       </div>
@@ -519,6 +498,64 @@
       </div>
     </div>
   </div>
+
+<!-- ══════════════════════════════════════════════════════
+     MODAL — PRONTUÁRIO
+══════════════════════════════════════════════════════ -->
+<div id="modal-prontuario" class="modal-overlay hidden" onclick="fecharModal('modal-prontuario')">
+  <div class="modal modal-lg" onclick="event.stopPropagation()" style="max-width:700px">
+    <div class="modal-header">
+      <h2 id="modal-pront-title">Prontuário</h2>
+      <button class="modal-close" onclick="fecharModal('modal-prontuario')">✕</button>
+    </div>
+    <div class="modal-body" style="min-height:480px">
+
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+        <button class="btn btn-primary btn-sm" onclick="prontAbrirNovaAnotacao()">
+          ✏️ + Nova Anotação
+        </button>
+      </div>
+
+      <div id="pront-form" class="hidden" style="
+        background:var(--surface-2);
+        border:1px solid var(--border);
+        border-radius:var(--radius);
+        padding:14px 16px;
+        margin-bottom:20px
+      ">
+        <input type="hidden" id="pront-edit-id" />
+        <div class="form-group" style="margin-bottom:10px">
+          <label>Fitzpatrick desta sessão</label>
+          <select id="pront-fitz">
+            <option value="0">— Não informado —</option>
+            <option value="1">Tipo I — Sempre queima, nunca bronzeia</option>
+            <option value="2">Tipo II — Sempre queima, bronzeia com dificuldade</option>
+            <option value="3">Tipo III — Às vezes queima, sempre bronzeia</option>
+            <option value="4">Tipo IV — Raramente queima, bronzeia facilmente</option>
+            <option value="5">Tipo V — Queima muito raramente, bronzeia muito facilmente</option>
+            <option value="6">Tipo VI — Nunca queima, bronzeia muito facilmente</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Anotação</label>
+          <textarea id="pront-texto" rows="4" placeholder="Registre observações, evolução, intercorrências..."></textarea>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+          <button class="btn btn-secondary btn-sm" onclick="prontCancelarForm()">Cancelar</button>
+          <button class="btn btn-primary btn-sm" onclick="prontSalvarAnotacao()">💾 Salvar</button>
+        </div>
+      </div>
+
+      <div id="pront-timeline">
+        <!-- preenchido via JS -->
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="fecharModal('modal-prontuario')">Fechar</button>
+    </div>
+  </div>
+</div>
 
   <!-- ═══ MODAL PROCEDIMENTO ═══ -->
   <div id="modal-procedimento" class="modal-overlay hidden">
@@ -661,6 +698,7 @@
   <script src="./js/logs.js"></script>
   <script src="./js/dashboard.js"></script>
   <script src="./js/usuarios.js"></script>
+  <script src="./js/prontuario.js"></script>
   <script src="./js/app.js"></script>
 </body>
 

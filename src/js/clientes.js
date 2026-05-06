@@ -26,11 +26,6 @@ function _getCheckedIds(containerSelector) {
     .map(cb => parseInt(cb.value));
 }
 
-function _toggleFitzUI() {
-  const temLaser = !!document.querySelector('#cli-proc-interesse-list input[data-laser="1"]:checked');
-  document.getElementById('cli-fitz-section').classList.toggle('hidden', !temLaser);
-}
-
 // ── render lista ──────────────────────────────────────────────
 async function renderClientes() {
   const lista = await window.api.clientes.listar();
@@ -47,18 +42,18 @@ async function renderClientes() {
     <div class="card">
       <table>
         <thead>
-         <tr><th>Nome</th><th>Telefone</th><th>Nascimento</th><th>Fitzpatrick</th><th>Ações</th></tr></thead>
+         <tr><th>Nome</th><th>Telefone</th><th>Nascimento</th><th>Ações</th></tr></thead>
         <tbody id="tbody-clientes">
           ${lista.length === 0
-      ? `<tr><td colspan="6"><div class="empty-state"><div class="icon">👤</div><p>Nenhum cliente cadastrado.</p></div></td></tr>`
+      ? `<tr><td colspan="4"><div class="empty-state"><div class="icon">👤</div><p>Nenhum cliente cadastrado.</p></div></td></tr>`
       : lista.map(c => `
               <tr data-nome="${c.nome.toLowerCase()}">
                 <td><strong>${c.nome}</strong></td>
                 <td>${c.telefone || '-'}</td>
                 <td>${fmtData(c.data_nascimento)}</td>
-                <td>${c.fitzpatrick ? 'Tipo ' + c.fitzpatrick : '-'}</td>
                 <td>
                   <button class="btn btn-info btn-sm" onclick="editarCliente(${c.id})">✏️ Editar</button>
+                  <button class="btn btn-secondary btn-sm" onclick="abrirProntuario(${c.id}, '${c.nome.replace(/'/g, "\\'")}')" >📋 Prontuário</button>
                   <button class="btn btn-danger btn-sm" onclick="excluirCliente(${c.id})">🗑️</button>
                   <button class="btn btn-whatsapp btn-sm"
                     onclick="abrirWhatsApp('${c.telefone}', null)"
@@ -86,8 +81,7 @@ async function _popularProcs() {
   const listProc = document.getElementById('cli-proc-interesse-list');
   listProc.innerHTML = procs.map(p => `
     <label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer">
-      <input type="checkbox" value="${p.id}" data-laser="${p.is_laser || 0}"
-        onchange="_toggleFitzUI()"/>
+      <input type="checkbox" value="${p.id}" data-laser="${p.is_laser || 0}"/>
       ${p.nome}
     </label>
   `).join('');
@@ -103,7 +97,7 @@ function _resetForm() {
     'cli-obs', 'cli-sol-quando'
   ].forEach(id => _set(id, ''));
 
-  // NOVO: reseta os selects para "Selecione"
+  // reseta os selects para "Selecione"
   ['cli-olhos', 'cli-cabelos', 'cli-pelos'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.selectedIndex = 0;
@@ -114,9 +108,7 @@ function _resetForm() {
     'r-hirsu', 'r-gest', 'r-lact', 'r-herpes', 'r-sol'
   ].forEach(name => _setRadio(name, 0));
 
-  document.querySelectorAll('input[name="r-fitz"]').forEach(r => r.checked = false);
   document.querySelectorAll('#cli-proc-interesse-list input').forEach(cb => cb.checked = false);
-  _toggleFitzUI();
 }
 
 // ── abrir novo ────────────────────────────────────────────────
@@ -154,7 +146,6 @@ async function editarCliente(id) {
     const cb = document.querySelector(`#cli-proc-interesse-list input[value="${pid}"]`);
     if (cb) cb.checked = true;
   });
-  _toggleFitzUI();
 
   // aba 3
   _setRadio('r-med', c.medicamento_uso); _set('cli-med-qual', c.medicamento_qual);
@@ -175,16 +166,12 @@ async function editarCliente(id) {
   _setRadio('r-herpes', c.herpes);
   _set('cli-obs', c.observacoes);
 
-  // aba 4
+  // características físicas (agora dentro da aba Saúde)
   _set('cli-olhos', c.cor_olhos);
   _set('cli-cabelos', c.cor_cabelos);
   _set('cli-pelos', c.cor_pelos);
   _setRadio('r-sol', c.tomou_sol);
   _set('cli-sol-quando', c.sol_quando);
-  if (c.fitzpatrick) {
-    const fe = document.querySelector(`input[name="r-fitz"][value="${c.fitzpatrick}"]`);
-    if (fe) fe.checked = true;
-  }
 
   switchTab('tab-dados', document.querySelector('.tab-btn'));
   abrirModal('modal-cliente');
@@ -196,9 +183,6 @@ async function salvarCliente() {
   if (!nome) { toast('Nome é obrigatório', 'error'); return; }
   if (!_v('cli-cpf').trim()) { toast('CPF é obrigatório', 'error'); return; }
   if (!_v('cli-telefone').trim()) { toast('Telefone é obrigatório', 'error'); return; }
-
-  // CORRIGIDO: declarar temLaser aqui
-  const temLaser = !!document.querySelector('#cli-proc-interesse-list input[data-laser="1"]:checked');
 
   const dados = {
     id: _v('cli-id') || null,
@@ -243,7 +227,7 @@ async function salvarCliente() {
     cor_pelos: _v('cli-pelos'),
     tomou_sol: _radioVal('r-sol'),
     sol_quando: _v('cli-sol-quando'),
-    fitzpatrick: temLaser ? _radioVal('r-fitz') : 0,
+    fitzpatrick: 0,
     termo_assinado: 0,
     observacoes: _v('cli-obs'),
   };
