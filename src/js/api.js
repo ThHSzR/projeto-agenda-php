@@ -1,7 +1,4 @@
-// ── Base URL dinâmica (sem caminhos hardcoded) ─────────────────
-// Funciona em qualquer subpasta sem precisar alterar o código.
-// Ex: XAMPP em /projeto-agenda-php/ → _basePath = '/projeto-agenda-php'
-//     Produção na raiz             → _basePath = ''
+// ── Base URL dinâmica (sem caminhos hardcoded) ───────────────────────────────
 const _basePath = location.pathname.replace(/\/src\/.*$/, '').replace(/\/index\.html$/, '');
 
 const api = {
@@ -13,7 +10,6 @@ const api = {
     };
     if (body !== undefined) opts.body = JSON.stringify(body);
 
-    // Sempre usa api.php?_route= — não depende de mod_rewrite nem .htaccess
     const [path, qs] = url.replace(/^\//, '').split('?');
     const fullUrl = `${_basePath}/api.php?_route=${path}${qs ? '&' + qs : ''}`;
 
@@ -117,6 +113,12 @@ const api = {
   clienteVariantes: {
     getInteresse:    (id) => api._fetch('GET', `/cliente-variantes/${id}`),
     salvarInteresse: (p)  => api._fetch('POST', '/cliente-variantes', p),
+  },
+  prontuario: {
+    listar:  (clienteId) => api._fetch('GET', `/prontuario?cliente_id=${clienteId}`),
+    criar:   (d) => api._fetch('POST', '/prontuario', d),
+    editar:  (id, d) => api._fetch('PATCH', `/prontuario/${id}`, d),
+    excluir: (id) => api._fetch('DELETE', `/prontuario/${id}`),
   },
 };
 
