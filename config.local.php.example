@@ -1,0 +1,9 @@
+<?php
+// Copie este arquivo para config.local.php e preencha com suas credenciais reais.
+// config.local.php está no .gitignore — nunca será commitado.
+
+define('DB_HOST',        'localhost');
+define('DB_NAME',        'nome_do_banco');
+define('DB_USER',        'usuario_do_banco');
+define('DB_PASS',        'sua_senha_aqui');
+define('SESSION_SECRET', 'gere-uma-chave-aleatoria-longa-aqui');
