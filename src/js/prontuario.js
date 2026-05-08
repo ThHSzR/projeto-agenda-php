@@ -4,7 +4,7 @@
 
 let _prontClienteId      = null;
 let _prontClienteNome    = null;
-let _prontFormAbertoPara = null; // id do card que está com form aberto
+let _prontFormAbertoPara = null;
 
 // ── Abrir modal ────────────────────────────────────────
 async function abrirProntuario(clienteId, clienteNome) {
@@ -20,9 +20,7 @@ async function abrirProntuario(clienteId, clienteNome) {
 }
 
 // ── Abrir form direto em edição do atendimento recém-criado ──
-// agendamentoId = id do AGENDAMENTO (não do prontuário)
 async function prontAbrirEdicaoAtendimento(agendamentoId, anotacaoAuto, temLaser) {
-  // A timeline já foi carregada por abrirProntuario(); apenas abre o form inline
   _prontAbrirFormNoCard(
     { agendamento_id: agendamentoId, tem_laser: temLaser ? 1 : 0 },
     anotacaoAuto || ''
@@ -50,7 +48,6 @@ async function _prontCarregar() {
 
     timeline.innerHTML = entradas.map(e => _prontRenderCard(e)).join('');
 
-    // vincula listeners depois de injetar o HTML
     timeline.querySelectorAll('[data-pront-adicionar]').forEach(btn => {
       btn.addEventListener('click', () => {
         const cardId   = btn.dataset.prontAdicionar;
@@ -80,7 +77,6 @@ async function _prontCarregar() {
 
 // ── Abre o form inline DENTRO do card correto ─────────
 function _prontAbrirFormNoCard(ctx, textoInicial) {
-  // Fecha qualquer form inline já aberto
   document.querySelectorAll('.pront-inline-form').forEach(el => el.remove());
   _prontFormAbertoPara = null;
 
@@ -92,13 +88,11 @@ function _prontAbrirFormNoCard(ctx, textoInicial) {
 
   _prontFormAbertoPara = cardId;
 
-  const temLaser    = !!ctx.tem_laser;
-  const fitz        = ctx.fitz || 0;
-  const agendId     = ctx.agendamento_id || null;
-  // pronId: id do registro de prontuário do tipo 'anotacao' para UPDATE
-  const pronId      = ctx.prontuario_id || null;
-  // isAtendimento: indica se o card pai é um atendimento (anotação vai em registro separado)
-  const isAtend     = !!ctx.is_atendimento;
+  const temLaser = !!ctx.tem_laser;
+  const fitz     = ctx.fitz || 0;
+  const agendId  = ctx.agendamento_id || null;
+  const pronId   = ctx.prontuario_id || null;
+  const isAtend  = !!ctx.is_atendimento;
 
   const fitzHtml = temLaser ? `
     <div style="margin-bottom:10px">
@@ -159,54 +153,32 @@ function _prontFecharFormInline() {
 }
 
 // ── Salvar via form inline ─────────────────────────────
-// agendamentoId : id do agendamento vinculado ao card (só para cards de atendimento)
-// prontuarioId  : id do registro prontuario a editar (tipo 'anotacao' já existente)
-// isAtendimento : true quando o card pai é um 'atendimento' (anotação vai em registro separado)
+//
+// Regra simplificada:
+//   - isAtendimento=true  → sempre faz PATCH no registro de atendimento (prontuarioId)
+//                           salvando anotacao e fitzpatrick diretamente nele.
+//                           Nunca cria registro separado.
+//   - isAtendimento=false e prontuarioId → PATCH na anotação existente
+//   - isAtendimento=false sem prontuarioId → POST (nova anotação avulsa)
 async function _prontSalvarInline(agendamentoId, prontuarioId, isAtendimento) {
   const texto = (document.getElementById('pront-inline-texto')?.value || '').trim();
   const fitz  = parseInt(document.getElementById('pront-inline-fitz')?.value || '0') || 0;
 
+  if (!texto) { toast('Escreva algo na anotação', 'error'); return; }
+
   try {
-    if (isAtendimento) {
-      // ── Card de ATENDIMENTO ──────────────────────────────────────────────
-      // A anotação vive em um registro separado do tipo 'anotacao'.
-      // O fitzpatrick é atualizado no registro de atendimento original (prontuarioId).
-
-      // 1. Atualiza fitzpatrick no registro de atendimento (se laser presente)
-      if (prontuarioId && fitz > 0) {
-        await window.api.prontuario.editar(prontuarioId, { fitzpatrick: fitz });
-      }
-
-      // 2. Busca se já existe uma anotação avulsa vinculada a este agendamento
-      const entradas   = await window.api.prontuario.listar(_prontClienteId);
-      const notaExist  = entradas.find(
-        e => parseInt(e.agendamento_id) === parseInt(agendamentoId) && e.tipo === 'anotacao'
-      );
-
-      if (notaExist) {
-        // Edita a anotação existente
-        await window.api.prontuario.editar(notaExist.id, { anotacao: texto });
-      } else {
-        // Cria nova anotação vinculada ao agendamento
-        if (!texto) { toast('Escreva algo na anotação', 'error'); return; }
-        await window.api.prontuario.criar({
-          cliente_id:     _prontClienteId,
-          agendamento_id: agendamentoId,
-          tipo:           'anotacao',
-          fitzpatrick:    0,
-          anotacao:       texto,
-        });
-      }
+    if (isAtendimento && prontuarioId) {
+      // Salva anotacao e fitzpatrick direto no registro de atendimento
+      await window.api.prontuario.editar(prontuarioId, { anotacao: texto, fitzpatrick: fitz });
       toast('Anotação salva!', 'success');
 
     } else if (prontuarioId) {
-      // ── Card de ANOTAÇÃO existente — edição direta ───────────────────────
-      await window.api.prontuario.editar(prontuarioId, { fitzpatrick: fitz, anotacao: texto });
+      // Edição de anotação avulsa existente
+      await window.api.prontuario.editar(prontuarioId, { anotacao: texto, fitzpatrick: fitz });
       toast('Anotação atualizada!', 'success');
 
     } else {
-      // ── Novo registro sem vínculo (fallback) ─────────────────────────────
-      if (!texto) { toast('Escreva algo na anotação', 'error'); return; }
+      // Nova anotação avulsa (sem vínculo com atendimento)
       await window.api.prontuario.criar({
         cliente_id:     _prontClienteId,
         agendamento_id: agendamentoId || null,
@@ -278,11 +250,13 @@ function _prontRenderCard(e) {
 
   const anotacaoEscapada = (e.anotacao || '').replace(/"/g, '&quot;');
 
+  // Para cards de atendimento: data-pront-id é o id do próprio registro de atendimento
+  // O PATCH será feito diretamente nele, sem criar registro separado
   const botoesAcao = isAtendimento
     ? `<button class="btn btn-secondary btn-sm" style="font-size:12px"
          data-pront-adicionar="${cardId}"
          data-pront-agend-id="${e.agendamento_id}"
-         data-pront-id="${e.id || ''}"
+         data-pront-id="${e.id}"
          data-pront-txt="${anotacaoEscapada}"
          data-pront-fitz="${e.fitzpatrick || 0}"
          data-pront-laser="${temLaser ? '1' : '0'}"
@@ -335,7 +309,7 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-// ── Abrir form de nova anotação avulsa (botão + Nova Anotação) ─────────────
+// ── Abrir form de nova anotação avulsa ─────────────
 function prontAbrirNovaAnotacao() {
   document.querySelectorAll('.pront-inline-form').forEach(el => el.remove());
   _prontFormAbertoPara = null;
@@ -365,10 +339,10 @@ function prontCancelarForm() {
   form.classList.add('hidden');
 }
 
-// ── Salvar via form fixo (apenas nova anotação avulsa) ────────────────────
+// ── Salvar nova anotação avulsa (botão fixo) ────────────────────
 async function prontSalvarAnotacao() {
-  const texto  = document.getElementById('pront-texto').value.trim();
-  const fitz   = parseInt(document.getElementById('pront-fitz').value) || 0;
+  const texto = document.getElementById('pront-texto').value.trim();
+  const fitz  = parseInt(document.getElementById('pront-fitz').value) || 0;
 
   if (!texto) { toast('Escreva algo na anotação', 'error'); return; }
 
