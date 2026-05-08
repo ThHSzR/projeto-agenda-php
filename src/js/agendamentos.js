@@ -1,3 +1,99 @@
+// ── estado do autocomplete de clientes ───────────────────────
+let _agendClientesCache  = [];
+let _agendSearchFocusIdx = -1;
+
+function _agendFecharDropdown() {
+  const dd = document.getElementById('agend-cliente-dropdown');
+  if (dd) { dd.classList.remove('open'); dd.innerHTML = ''; }
+  _agendSearchFocusIdx = -1;
+}
+
+function _agendLimparCliente() {
+  document.getElementById('agend-cliente').value       = '';
+  document.getElementById('agend-cliente-input').value = '';
+  document.getElementById('agend-cliente-clear').style.display = 'none';
+  document.getElementById('agend-whatsapp-btn').style.display  = 'none';
+  _agendClienteTelefone = null;
+  _agendClienteNome     = null;
+  _agendFecharDropdown();
+}
+
+function _agendSelecionarCliente(id, nome, telefone) {
+  document.getElementById('agend-cliente').value       = id;
+  document.getElementById('agend-cliente-input').value = nome;
+  document.getElementById('agend-cliente-clear').style.display = '';
+  _agendClienteTelefone = telefone || null;
+  _agendClienteNome     = nome;
+  const btn = document.getElementById('agend-whatsapp-btn');
+  btn.style.display = _agendClienteTelefone ? '' : 'none';
+  _agendFecharDropdown();
+}
+
+function _agendFiltrarClientes(query) {
+  const dd = document.getElementById('agend-cliente-dropdown');
+  const q  = (query || '').trim().toLowerCase();
+  const lista = q
+    ? _agendClientesCache.filter(c => c.nome.toLowerCase().includes(q))
+    : _agendClientesCache;
+
+  if (!lista.length) {
+    dd.innerHTML = `<div class="cliente-option" style="color:var(--text-muted);cursor:default">Nenhum cliente encontrado</div>`;
+    dd.classList.add('open');
+    return;
+  }
+
+  dd.innerHTML = lista.map((c, i) => {
+    const nomeSafe = c.nome.replace(/</g, '&lt;');
+    let nomeHtml   = nomeSafe;
+    if (q) {
+      const idx = nomeSafe.toLowerCase().indexOf(q);
+      if (idx >= 0) {
+        nomeHtml =
+          nomeSafe.slice(0, idx) +
+          `<span class="match">${nomeSafe.slice(idx, idx + q.length)}</span>` +
+          nomeSafe.slice(idx + q.length);
+      }
+    }
+    const tel = c.telefone ? `<span class="sub">${c.telefone}</span>` : '';
+    return `<div class="cliente-option" data-idx="${i}"
+      onmousedown="_agendSelecionarCliente(${c.id}, '${c.nome.replace(/'/g, "\\'")}'.trim(), '${(c.telefone||'').replace(/'/g,"\\'")}')"
+    >${nomeHtml}${tel}</div>`;
+  }).join('');
+
+  dd.classList.add('open');
+  _agendSearchFocusIdx = -1;
+}
+
+function _agendSearchKeydown(e) {
+  const dd    = document.getElementById('agend-cliente-dropdown');
+  const items = dd.querySelectorAll('.cliente-option');
+  if (!items.length) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _agendSearchFocusIdx = Math.min(_agendSearchFocusIdx + 1, items.length - 1);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _agendSearchFocusIdx = Math.max(_agendSearchFocusIdx - 1, 0);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (_agendSearchFocusIdx >= 0) items[_agendSearchFocusIdx].dispatchEvent(new MouseEvent('mousedown'));
+    return;
+  } else if (e.key === 'Escape') {
+    _agendFecharDropdown();
+    return;
+  } else {
+    return;
+  }
+  items.forEach((el, i) => el.classList.toggle('focused', i === _agendSearchFocusIdx));
+  items[_agendSearchFocusIdx]?.scrollIntoView({ block: 'nearest' });
+}
+
+// Fechar dropdown ao clicar fora
+document.addEventListener('click', e => {
+  if (!e.target.closest('.cliente-search-wrapper')) _agendFecharDropdown();
+});
+
 async function renderAgendamentos() {
   const lista = await window.api.agendamentos.listar({});
   const page = document.getElementById('page-agendamentos');
@@ -329,8 +425,8 @@ function _agendResetPromo() {
 }
 
 async function abrirNovoAgendamento(dataHoraPre) {
-  const clientes = await window.api.clientes.listar();
-  if (clientes.length === 0) { toast('Cadastre um cliente primeiro.', 'error'); return; }
+  _agendClientesCache = await window.api.clientes.listar();
+  if (_agendClientesCache.length === 0) { toast('Cadastre um cliente primeiro.', 'error'); return; }
 
   document.getElementById('modal-agend-title').textContent    = 'Novo Agendamento';
   document.getElementById('agend-id').value                   = '';
@@ -341,9 +437,11 @@ async function abrirNovoAgendamento(dataHoraPre) {
   document.getElementById('agend-procs-lista').innerHTML      = '';
   document.getElementById('agend-whatsapp-btn').style.display = 'none';
 
-  document.getElementById('agend-cliente').innerHTML =
-    `<option value="" disabled selected>— Selecione um cliente —</option>` +
-    clientes.map(c => `<option value="${c.id}" data-tel="${c.telefone || ''}">${c.nome}</option>`).join('');
+  // Resetar search box
+  document.getElementById('agend-cliente').value             = '';
+  document.getElementById('agend-cliente-input').value       = '';
+  document.getElementById('agend-cliente-clear').style.display = 'none';
+  _agendFecharDropdown();
 
   _agendProcsModal      = [];
   _agendClienteTelefone = null;
@@ -360,7 +458,7 @@ async function editarAgendamento(id) {
   const a = await window.api.agendamentos.buscar(id);
   if (!a) return;
 
-  const clientes = await window.api.clientes.listar();
+  _agendClientesCache = await window.api.clientes.listar();
 
   document.getElementById('modal-agend-title').textContent = 'Editar Agendamento';
   document.getElementById('agend-id').value        = a.id;
@@ -370,9 +468,11 @@ async function editarAgendamento(id) {
   document.getElementById('agend-valor').value     = a.valor_cobrado || '';
   document.getElementById('agend-procs-lista').innerHTML = '';
 
-  document.getElementById('agend-cliente').innerHTML =
-    clientes.map(c => `<option value="${c.id}" data-tel="${c.telefone || ''}"
-      ${c.id === a.cliente_id ? 'selected' : ''}>${c.nome}</option>`).join('');
+  // Preencher search box com o cliente atual
+  document.getElementById('agend-cliente').value             = a.cliente_id;
+  document.getElementById('agend-cliente-input').value       = a.cliente_nome;
+  document.getElementById('agend-cliente-clear').style.display = '';
+  _agendFecharDropdown();
 
   _agendClienteTelefone = a.cliente_telefone;
   _agendClienteNome     = a.cliente_nome;
@@ -448,7 +548,6 @@ async function salvarAgendamento() {
           anotacao:       null,
         });
       } catch (e) {
-        // Se já existe (409), ignorar silenciosamente
         if (!e.message?.includes('409')) console.warn('Prontuário:', e.message);
       }
     }
