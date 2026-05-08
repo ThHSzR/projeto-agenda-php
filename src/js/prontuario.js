@@ -278,10 +278,6 @@ function _prontRenderCard(e) {
 
   const anotacaoEscapada = (e.anotacao || '').replace(/"/g, '&quot;');
 
-  // Para atendimentos:
-  //   - data-pront-is-atend="1" sinaliza que anotação vai em registro separado
-  //   - data-pront-id passa o id do registro de atendimento (para atualizar fitzpatrick)
-  //   - O texto exibido no form vem de uma anotação separada (buscada na hora do save)
   const botoesAcao = isAtendimento
     ? `<button class="btn btn-secondary btn-sm" style="font-size:12px"
          data-pront-adicionar="${cardId}"
@@ -395,7 +391,7 @@ async function prontSalvarAnotacao() {
 
 // ── Excluir anotação ───────────────────────────────────
 async function prontExcluirAnotacao(id) {
-  if (!confirm('Excluir esta anotação?')) return;\
+  if (!confirm('Excluir esta anotação?')) return;
   try {
     await window.api.prontuario.excluir(id);
     toast('Anotação excluída.', 'info');
