@@ -240,24 +240,23 @@ async function alterarStatusAgend(id, status) {
       const anotacaoAuto = _agendMontarAnotacaoAuto(agend);
       const temLaser     = _agendTemLaser(agend.procs || []);
 
-      let prontuarioId = null;
+      // Cria o registro de atendimento no prontuário (ou ignora 409 se já existir)
       try {
-        const resp = await window.api.prontuario.criar({
+        await window.api.prontuario.criar({
           cliente_id:     agend.cliente_id,
-          agendamento_id: id,
+          agendamento_id: id,          // id do AGENDAMENTO
           tipo:           'atendimento',
           fitzpatrick:    0,
           anotacao:       null,
         });
-        prontuarioId = resp?.id || null;
       } catch (e) {
         if (!e.message?.includes('409')) console.warn('Prontuário:', e.message);
       }
 
+      // Abre o modal e depois abre o form inline diretamente no card do agendamento
       await abrirProntuario(agend.cliente_id, agend.cliente_nome);
-      if (prontuarioId) {
-        prontAbrirEdicaoAtendimento(prontuarioId, anotacaoAuto, temLaser);
-      }
+      // Passa o id do AGENDAMENTO (não o prontuarioId) para localizar o card
+      prontAbrirEdicaoAtendimento(id, anotacaoAuto, temLaser);
     } catch (e) {
       console.warn('Erro ao abrir prontuário após conclusão:', e.message);
     }
@@ -614,24 +613,21 @@ async function salvarAgendamento() {
     toast('Agendamento salvo!', 'success');
 
     if (statusNovo === 'concluido' && parseInt(clienteId)) {
-      let prontuarioId = null;
       try {
-        const resp = await window.api.prontuario.criar({
+        await window.api.prontuario.criar({
           cliente_id:     parseInt(clienteId),
-          agendamento_id: resultado.id,
+          agendamento_id: resultado.id,   // id do AGENDAMENTO
           tipo:           'atendimento',
           fitzpatrick:    0,
           anotacao:       null,
         });
-        prontuarioId = resp?.id || null;
       } catch (e) {
         if (!e.message?.includes('409')) console.warn('Prontuário:', e.message);
       }
 
       await abrirProntuario(parseInt(clienteId), clienteNomeAtual);
-      if (prontuarioId) {
-        prontAbrirEdicaoAtendimento(prontuarioId, anotacaoAuto, temLaser);
-      }
+      // Passa o id do AGENDAMENTO para localizar o card na timeline
+      prontAbrirEdicaoAtendimento(resultado.id, anotacaoAuto, temLaser);
     }
 
     const paginaAtiva = document.querySelector('.page:not(.hidden)');
