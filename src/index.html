@@ -584,6 +584,7 @@
         </button>
       </div>
 
+      <!-- Formulário de anotação / edição -->
       <div id="pront-form" class="hidden" style="
         background:var(--surface-2);
         border:1px solid var(--border);
@@ -592,8 +593,14 @@
         margin-bottom:20px
       ">
         <input type="hidden" id="pront-edit-id" />
-        <div class="form-group" style="margin-bottom:10px">
-          <label>Fitzpatrick desta sessão</label>
+
+        <!-- Fitzpatrick — oculto por padrão, exibido via JS quando há laser -->
+        <div id="pront-fitz-row" class="form-group" style="display:none;margin-bottom:10px">
+          <label>Fitzpatrick desta sessão
+            <span style="font-weight:400;font-size:12px;color:var(--text-muted);text-transform:none;letter-spacing:0;margin-left:4px">
+              (visível pois há depilação a laser)
+            </span>
+          </label>
           <select id="pront-fitz">
             <option value="0">— Não informado —</option>
             <option value="1">Tipo I — Sempre queima, nunca bronzeia</option>
@@ -604,6 +611,7 @@
             <option value="6">Tipo VI — Nunca queima, bronzeia muito facilmente</option>
           </select>
         </div>
+
         <div class="form-group">
           <label>Anotação</label>
           <textarea id="pront-texto" rows="4" placeholder="Registre observações, evolução, intercorrências..."></textarea>

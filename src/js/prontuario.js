@@ -1,10 +1,11 @@
 // ══════════════════════════════════════════════════════
-// PRONTU\u00C1RIO \u2014 m\u00F3dulo completo
+// PRONTUÁRIO — módulo completo
 // ══════════════════════════════════════════════════════
 
-let _prontClienteId   = null;
-let _prontClienteNome = null;
-let _prontEditandoId  = null;
+let _prontClienteId      = null;
+let _prontClienteNome    = null;
+let _prontEditandoId     = null;
+let _prontTemLaser       = false; // controla exibição do Fitzpatrick
 
 // ── Abrir modal ────────────────────────────────────────
 async function abrirProntuario(clienteId, clienteNome) {
@@ -13,33 +14,45 @@ async function abrirProntuario(clienteId, clienteNome) {
   _prontEditandoId  = null;
 
   document.getElementById('modal-pront-title').textContent =
-    `\uD83D\uDCCB Prontu\u00E1rio \u2014 ${clienteNome}`;
+    `📋 Prontuário — ${clienteNome}`;
 
   prontCancelarForm();
   await _prontCarregar();
   abrirModal('modal-prontuario');
 }
 
-// ── Abrir form pre-preenchido (chamado apos conclusao de agendamento) ──
-function prontAbrirNovaAnotacaoComTexto(texto, prontuarioIdParaEditar = null) {
-  if (prontuarioIdParaEditar) {
-    // Editar o registro de atendimento recem criado
-    _prontEditandoId = prontuarioIdParaEditar;
-    document.getElementById('pront-edit-id').value = prontuarioIdParaEditar;
-  } else {
-    _prontEditandoId = null;
-    document.getElementById('pront-edit-id').value = '';
+// ── Controla visibilidade do Fitzpatrick ───────────────
+function _prontSetFitzVisivel(visivel) {
+  const row = document.getElementById('pront-fitz-row');
+  if (row) row.style.display = visivel ? '' : 'none';
+  if (!visivel) {
+    const sel = document.getElementById('pront-fitz');
+    if (sel) sel.value = '0';
   }
-  document.getElementById('pront-fitz').value   = '0';
-  document.getElementById('pront-texto').value  = texto || '';
-  document.getElementById('pront-form').classList.remove('hidden');
+}
 
-  // Destacar o form com uma borda de destaque e mensagem contextual
+// ── Verifica se lista de procs contém laser ────────────
+function _temLaser(procsStr) {
+  if (!procsStr) return false;
+  return procsStr.toLowerCase().includes('laser');
+}
+
+// ── Abrir form direto em edição do atendimento recém-criado ──
+function prontAbrirEdicaoAtendimento(prontuarioId, anotacaoAuto, temLaser) {
+  _prontEditandoId = prontuarioId;
+  _prontTemLaser   = !!temLaser;
+
+  document.getElementById('pront-edit-id').value = prontuarioId;
+  document.getElementById('pront-fitz').value    = '0';
+  document.getElementById('pront-texto').value   = anotacaoAuto || '';
+
+  _prontSetFitzVisivel(_prontTemLaser);
+
   const form = document.getElementById('pront-form');
-  form.style.borderColor  = 'var(--primary, #01696f)';
-  form.style.background   = 'var(--surface, #fff)';
+  form.style.borderColor = 'var(--primary, #01696f)';
+  form.style.background  = 'var(--surface, #fff)';
+  form.classList.remove('hidden');
 
-  // Scroll suave ate o form
   setTimeout(() => {
     form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     document.getElementById('pront-texto').focus();
@@ -57,16 +70,34 @@ async function _prontCarregar() {
     if (!entradas || entradas.length === 0) {
       timeline.innerHTML = `
         <div style="text-align:center;padding:48px 16px;color:var(--text-muted)">
-          <div style="font-size:40px;margin-bottom:12px">\uD83D\uDCCB</div>
+          <div style="font-size:40px;margin-bottom:12px">📋</div>
           <p style="font-size:15px">Nenhum registro ainda.</p>
-          <p style="font-size:13px;margin-top:4px">Os atendimentos conclu\u00EDdos aparecer\u00E3o aqui automaticamente.</p>
+          <p style="font-size:13px;margin-top:4px">Os atendimentos concluídos aparecerão aqui automaticamente.</p>
         </div>`;
       return;
     }
 
+    // guarda dados em atributos para evitar quebra de inline JSON
     timeline.innerHTML = entradas.map(e => _prontRenderCard(e)).join('');
+
+    // vincula listeners depois de injetar o HTML
+    timeline.querySelectorAll('[data-pront-editar]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id   = parseInt(btn.dataset.prontEditar);
+        const fitz = parseInt(btn.dataset.prontFitz) || 0;
+        const txt  = btn.dataset.prontTxt || '';
+        const laser = btn.dataset.prontLaser === '1';
+        prontEditarEntrada(id, fitz, txt, laser);
+      });
+    });
+    timeline.querySelectorAll('[data-pront-excluir]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        prontExcluirAnotacao(parseInt(btn.dataset.prontExcluir));
+      });
+    });
+
   } catch (err) {
-    timeline.innerHTML = `<p style="color:var(--error);text-align:center;padding:32px">Erro ao carregar prontu\u00E1rio.</p>`;
+    timeline.innerHTML = `<p style="color:var(--error);text-align:center;padding:32px">Erro ao carregar prontuário.</p>`;
     console.error(err);
   }
 }
@@ -77,6 +108,8 @@ function _prontRenderCard(e) {
   const dataFormatada = e.agend_data_hora
     ? fmtDataHora(e.agend_data_hora)
     : fmtDataHora(e.criado_em);
+
+  const laser = _temLaser(e.agend_procedimentos);
 
   const fitzLabel = e.fitzpatrick
     ? `<span style="
@@ -93,13 +126,13 @@ function _prontRenderCard(e) {
 
   const procedimentos = e.agend_procedimentos
     ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">
-        \uD83D\uDC86 ${e.agend_procedimentos}
+        💆 ${escapeHtml(e.agend_procedimentos)}
        </div>`
     : '';
 
   const valor = e.agend_valor && parseFloat(e.agend_valor) > 0
     ? `<span style="font-size:12px;color:var(--text-muted);margin-left:8px">
-        \uD83D\uDCB0 ${fmtMoeda(e.agend_valor)}
+        💰 ${fmtMoeda(e.agend_valor)}
        </span>`
     : '';
 
@@ -116,22 +149,31 @@ function _prontRenderCard(e) {
       ">${escapeHtml(e.anotacao)}</div>`
     : (isAtendimento
         ? `<div style="margin-top:10px;font-size:13px;color:var(--text-muted);font-style:italic">
-             Sem anota\u00E7\u00E3o registrada.
+             Sem anotação registrada.
            </div>`
         : '');
 
+  // Usa data-attributes para evitar SyntaxError com aspas/caracteres especiais
+  const anotacaoEscapada = (e.anotacao || '').replace(/"/g, '&quot;');
+
   const botoesAcao = isAtendimento
     ? `<button class="btn btn-secondary btn-sm" style="font-size:12px"
-         onclick="prontEditarEntrada(${e.id}, ${e.fitzpatrick || 0}, ${JSON.stringify(e.anotacao || '')})">
-         \u270F\uFE0F ${e.anotacao ? 'Editar Anota\u00E7\u00E3o' : 'Adicionar Anota\u00E7\u00E3o'}
+         data-pront-editar="${e.id}"
+         data-pront-fitz="${e.fitzpatrick || 0}"
+         data-pront-txt="${anotacaoEscapada}"
+         data-pront-laser="${laser ? '1' : '0'}">
+         ✏️ ${e.anotacao ? 'Editar Anotação' : 'Adicionar Anotação'}
        </button>`
     : `<button class="btn btn-secondary btn-sm" style="font-size:12px"
-         onclick="prontEditarEntrada(${e.id}, ${e.fitzpatrick || 0}, ${JSON.stringify(e.anotacao || '')})">
-         \u270F\uFE0F Editar
+         data-pront-editar="${e.id}"
+         data-pront-fitz="${e.fitzpatrick || 0}"
+         data-pront-txt="${anotacaoEscapada}"
+         data-pront-laser="0">
+         ✏️ Editar
        </button>
        <button class="btn btn-danger btn-sm" style="font-size:12px"
-         onclick="prontExcluirAnotacao(${e.id})">
-         \uD83D\uDDD1\uFE0F
+         data-pront-excluir="${e.id}">
+         🗑️
        </button>`;
 
   return `
@@ -145,7 +187,7 @@ function _prontRenderCard(e) {
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <div>
           <span style="font-size:13px;font-weight:600;color:var(--text)">
-            ${isAtendimento ? '\uD83D\uDCC5 Atendimento' : '\uD83D\uDCDD Anota\u00E7\u00E3o'}
+            ${isAtendimento ? '📅 Atendimento' : '📝 Anotação'}
           </span>
           <span style="font-size:13px;color:var(--text-muted);margin-left:8px">${dataFormatada}</span>
           ${fitzLabel}
@@ -166,12 +208,15 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-// ── Abrir form de nova anotacao em branco ────────────────
+// ── Abrir form de nova anotação avulsa ─────────────────
 function prontAbrirNovaAnotacao() {
   _prontEditandoId = null;
+  _prontTemLaser   = false;
   document.getElementById('pront-edit-id').value = '';
   document.getElementById('pront-fitz').value    = '0';
   document.getElementById('pront-texto').value   = '';
+  // Anotação avulsa: Fitzpatrick sempre visível (opcional)
+  _prontSetFitzVisivel(true);
   const form = document.getElementById('pront-form');
   form.style.borderColor = '';
   form.style.background  = '';
@@ -179,12 +224,14 @@ function prontAbrirNovaAnotacao() {
   document.getElementById('pront-texto').focus();
 }
 
-// ── Abrir form de edicao de entrada existente ───────────
-function prontEditarEntrada(id, fitzpatrick, anotacao) {
+// ── Abrir form de edição de entrada existente ──────────
+function prontEditarEntrada(id, fitzpatrick, anotacao, temLaser) {
   _prontEditandoId = id;
+  _prontTemLaser   = !!temLaser;
   document.getElementById('pront-edit-id').value = id;
   document.getElementById('pront-fitz').value    = fitzpatrick || 0;
   document.getElementById('pront-texto').value   = anotacao || '';
+  _prontSetFitzVisivel(_prontTemLaser);
   const form = document.getElementById('pront-form');
   form.style.borderColor = '';
   form.style.background  = '';
@@ -193,19 +240,21 @@ function prontEditarEntrada(id, fitzpatrick, anotacao) {
   document.getElementById('pront-texto').focus();
 }
 
-// ── Cancelar form ────────────────────────────────────
+// ── Cancelar form ──────────────────────────────────────
 function prontCancelarForm() {
   _prontEditandoId = null;
+  _prontTemLaser   = false;
   document.getElementById('pront-edit-id').value = '';
   document.getElementById('pront-fitz').value    = '0';
   document.getElementById('pront-texto').value   = '';
+  _prontSetFitzVisivel(false);
   const form = document.getElementById('pront-form');
   form.style.borderColor = '';
   form.style.background  = '';
   form.classList.add('hidden');
 }
 
-// ── Salvar anotacao (nova ou edicao) ──────────────────
+// ── Salvar anotação (nova ou edição) ───────────────────
 async function prontSalvarAnotacao() {
   const texto  = document.getElementById('pront-texto').value.trim();
   const fitz   = parseInt(document.getElementById('pront-fitz').value) || 0;
@@ -217,9 +266,9 @@ async function prontSalvarAnotacao() {
         fitzpatrick: fitz,
         anotacao:    texto,
       });
-      toast('Anota\u00E7\u00E3o atualizada!', 'success');
+      toast('Anotação atualizada!', 'success');
     } else {
-      if (!texto) { toast('Escreva algo na anota\u00E7\u00E3o', 'error'); return; }
+      if (!texto) { toast('Escreva algo na anotação', 'error'); return; }
       await window.api.prontuario.criar({
         cliente_id:     _prontClienteId,
         agendamento_id: null,
@@ -227,7 +276,7 @@ async function prontSalvarAnotacao() {
         fitzpatrick:    fitz,
         anotacao:       texto,
       });
-      toast('Anota\u00E7\u00E3o salva!', 'success');
+      toast('Anotação salva!', 'success');
     }
 
     prontCancelarForm();
@@ -238,12 +287,12 @@ async function prontSalvarAnotacao() {
   }
 }
 
-// ── Excluir anotacao ───────────────────────────────
+// ── Excluir anotação ───────────────────────────────────
 async function prontExcluirAnotacao(id) {
-  if (!confirm('Excluir esta anota\u00E7\u00E3o?')) return;
+  if (!confirm('Excluir esta anotação?')) return;
   try {
     await window.api.prontuario.excluir(id);
-    toast('Anota\u00E7\u00E3o exclu\u00EDda.', 'info');
+    toast('Anotação excluída.', 'info');
     await _prontCarregar();
   } catch (err) {
     toast('Erro ao excluir: ' + err.message, 'error');
