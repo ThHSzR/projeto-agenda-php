@@ -1,0 +1,17 @@
+# Logs
+app.log
+*.log
+
+# Arquivos de debug/teste — não subir para produção
+debug.php
+teste.php
+ver_log.php
+gerar_hash.php
+
+# Dependências
+vendor/
+
+# Configs de IDE
+.idea/
+.vscode/
+*.DS_Store
