@@ -576,7 +576,8 @@ if ($parts[0] === 'prontuario') {
                 a.data_hora        AS agend_data_hora,
                 a.status           AS agend_status,
                 a.valor_cobrado    AS agend_valor,
-                GROUP_CONCAT(p.nome ORDER BY p.nome SEPARATOR ', ') AS agend_procedimentos
+                GROUP_CONCAT(p.nome ORDER BY p.nome SEPARATOR ', ') AS agend_procedimentos,
+                MAX(p.is_laser)                                       AS agend_tem_laser
             FROM prontuario pr
             LEFT JOIN agendamentos a ON a.id = pr.agendamento_id
             LEFT JOIN agendamento_procedimentos ap ON ap.agendamento_id = a.id
