@@ -59,8 +59,9 @@ async function _prontCarregar() {
         const txt      = btn.dataset.prontTxt || '';
         const temLaser = btn.dataset.prontLaser === '1';
         const fitz     = parseInt(btn.dataset.prontFitz) || 0;
+        const isAtend  = btn.dataset.prontIsAtend === '1';
         _prontAbrirFormNoCard(
-          { card_id: cardId, agendamento_id: agendId, prontuario_id: pronId, tem_laser: temLaser ? 1 : 0, fitz },
+          { card_id: cardId, agendamento_id: agendId, prontuario_id: pronId, tem_laser: temLaser ? 1 : 0, fitz, is_atendimento: isAtend },
           txt
         );
       });
@@ -91,11 +92,13 @@ function _prontAbrirFormNoCard(ctx, textoInicial) {
 
   _prontFormAbertoPara = cardId;
 
-  const temLaser = !!ctx.tem_laser;
-  const fitz     = ctx.fitz || 0;
-  const agendId  = ctx.agendamento_id || null;
-  // pronId: id do registro de prontuário para UPDATE (edição de anotação existente)
-  const pronId   = ctx.prontuario_id || null;
+  const temLaser    = !!ctx.tem_laser;
+  const fitz        = ctx.fitz || 0;
+  const agendId     = ctx.agendamento_id || null;
+  // pronId: id do registro de prontuário do tipo 'anotacao' para UPDATE
+  const pronId      = ctx.prontuario_id || null;
+  // isAtendimento: indica se o card pai é um atendimento (anotação vai em registro separado)
+  const isAtend     = !!ctx.is_atendimento;
 
   const fitzHtml = temLaser ? `
     <div style="margin-bottom:10px">
@@ -132,7 +135,7 @@ function _prontAbrirFormNoCard(ctx, textoInicial) {
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
         <button class="btn btn-secondary btn-sm" onclick="_prontFecharFormInline()">Cancelar</button>
-        <button class="btn btn-primary btn-sm" onclick="_prontSalvarInline(${agendId ?? 'null'}, ${pronId ?? 'null'})">
+        <button class="btn btn-primary btn-sm" onclick="_prontSalvarInline(${agendId ?? 'null'}, ${pronId ?? 'null'}, ${isAtend})">
           💾 Salvar
         </button>
       </div>
@@ -156,46 +159,64 @@ function _prontFecharFormInline() {
 }
 
 // ── Salvar via form inline ─────────────────────────────
-async function _prontSalvarInline(agendamentoId, prontuarioId) {
+// agendamentoId : id do agendamento vinculado ao card (só para cards de atendimento)
+// prontuarioId  : id do registro prontuario a editar (tipo 'anotacao' já existente)
+// isAtendimento : true quando o card pai é um 'atendimento' (anotação vai em registro separado)
+async function _prontSalvarInline(agendamentoId, prontuarioId, isAtendimento) {
   const texto = (document.getElementById('pront-inline-texto')?.value || '').trim();
   const fitz  = parseInt(document.getElementById('pront-inline-fitz')?.value || '0') || 0;
 
   try {
-    if (prontuarioId) {
-      // Edição de registro existente (anotação avulsa OU atendimento já cadastrado)
-      await window.api.prontuario.editar(prontuarioId, { fitzpatrick: fitz, anotacao: texto });
-      toast('Anotação atualizada!', 'success');
-    } else if (agendamentoId) {
-      // Atendimento recém-concluído: verifica se já existe registro antes de criar
-      // A API deve ter o endpoint PATCH /prontuario/agendamento/:id ou usamos edição por agendamento_id
-      if (!texto) { toast('Escreva algo na anotação', 'error'); return; }
-      // Tenta encontrar o prontuario_id existente para este agendamento
-      const entradas = await window.api.prontuario.listar(_prontClienteId);
-      const existente = entradas.find(e => parseInt(e.agendamento_id) === parseInt(agendamentoId) && e.tipo === 'atendimento');
-      if (existente) {
-        await window.api.prontuario.editar(existente.id, { fitzpatrick: fitz, anotacao: texto });
+    if (isAtendimento) {
+      // ── Card de ATENDIMENTO ──────────────────────────────────────────────
+      // A anotação vive em um registro separado do tipo 'anotacao'.
+      // O fitzpatrick é atualizado no registro de atendimento original (prontuarioId).
+
+      // 1. Atualiza fitzpatrick no registro de atendimento (se laser presente)
+      if (prontuarioId && fitz > 0) {
+        await window.api.prontuario.editar(prontuarioId, { fitzpatrick: fitz });
+      }
+
+      // 2. Busca se já existe uma anotação avulsa vinculada a este agendamento
+      const entradas   = await window.api.prontuario.listar(_prontClienteId);
+      const notaExist  = entradas.find(
+        e => parseInt(e.agendamento_id) === parseInt(agendamentoId) && e.tipo === 'anotacao'
+      );
+
+      if (notaExist) {
+        // Edita a anotação existente
+        await window.api.prontuario.editar(notaExist.id, { anotacao: texto });
       } else {
+        // Cria nova anotação vinculada ao agendamento
+        if (!texto) { toast('Escreva algo na anotação', 'error'); return; }
         await window.api.prontuario.criar({
           cliente_id:     _prontClienteId,
           agendamento_id: agendamentoId,
-          tipo:           'atendimento',
-          fitzpatrick:    fitz,
+          tipo:           'anotacao',
+          fitzpatrick:    0,
           anotacao:       texto,
         });
       }
       toast('Anotação salva!', 'success');
+
+    } else if (prontuarioId) {
+      // ── Card de ANOTAÇÃO existente — edição direta ───────────────────────
+      await window.api.prontuario.editar(prontuarioId, { fitzpatrick: fitz, anotacao: texto });
+      toast('Anotação atualizada!', 'success');
+
     } else {
-      // Sem vínculo (improvável neste fluxo)
+      // ── Novo registro sem vínculo (fallback) ─────────────────────────────
       if (!texto) { toast('Escreva algo na anotação', 'error'); return; }
       await window.api.prontuario.criar({
         cliente_id:     _prontClienteId,
-        agendamento_id: null,
+        agendamento_id: agendamentoId || null,
         tipo:           'anotacao',
         fitzpatrick:    fitz,
         anotacao:       texto,
       });
       toast('Anotação salva!', 'success');
     }
+
     await _prontCarregar();
   } catch (err) {
     toast('Erro ao salvar: ' + err.message, 'error');
@@ -258,8 +279,9 @@ function _prontRenderCard(e) {
   const anotacaoEscapada = (e.anotacao || '').replace(/"/g, '&quot;');
 
   // Para atendimentos:
-  //   - Se já tem prontuario_id (e.id), passa-o para editar diretamente
-  //   - Se não, passa apenas o agendamento_id para criar/buscar
+  //   - data-pront-is-atend="1" sinaliza que anotação vai em registro separado
+  //   - data-pront-id passa o id do registro de atendimento (para atualizar fitzpatrick)
+  //   - O texto exibido no form vem de uma anotação separada (buscada na hora do save)
   const botoesAcao = isAtendimento
     ? `<button class="btn btn-secondary btn-sm" style="font-size:12px"
          data-pront-adicionar="${cardId}"
@@ -267,7 +289,8 @@ function _prontRenderCard(e) {
          data-pront-id="${e.id || ''}"
          data-pront-txt="${anotacaoEscapada}"
          data-pront-fitz="${e.fitzpatrick || 0}"
-         data-pront-laser="${temLaser ? '1' : '0'}">
+         data-pront-laser="${temLaser ? '1' : '0'}"
+         data-pront-is-atend="1">
          ✏️ ${e.anotacao ? 'Editar Anotação' : 'Adicionar Anotação'}
        </button>`
     : `<button class="btn btn-secondary btn-sm" style="font-size:12px"
@@ -275,7 +298,8 @@ function _prontRenderCard(e) {
          data-pront-id="${e.id}"
          data-pront-fitz="${e.fitzpatrick || 0}"
          data-pront-txt="${anotacaoEscapada}"
-         data-pront-laser="0">
+         data-pront-laser="0"
+         data-pront-is-atend="0">
          ✏️ Editar
        </button>
        <button class="btn btn-danger btn-sm" style="font-size:12px"
@@ -371,7 +395,7 @@ async function prontSalvarAnotacao() {
 
 // ── Excluir anotação ───────────────────────────────────
 async function prontExcluirAnotacao(id) {
-  if (!confirm('Excluir esta anotação?')) return;
+  if (!confirm('Excluir esta anotação?')) return;\
   try {
     await window.api.prontuario.excluir(id);
     toast('Anotação excluída.', 'info');
