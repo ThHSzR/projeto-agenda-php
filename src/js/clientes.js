@@ -181,7 +181,7 @@ async function editarCliente(id) {
 async function salvarCliente() {
   const nome = _v('cli-nome').trim();
   if (!nome) { toast('Nome é obrigatório', 'error'); return; }
-  if (!_v('cli-cpf').trim()) { toast('CPF é obrigatório', 'error'); return; }
+  //if (!_v('cli-cpf').trim()) { toast('CPF é obrigatório', 'error'); return; }
   if (!_v('cli-telefone').trim()) { toast('Telefone é obrigatório', 'error'); return; }
 
   const dados = {
