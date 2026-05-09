@@ -635,7 +635,6 @@ if ($parts[0] === 'prontuario') {
             $values[] = (int)$d['fitzpatrick'];
         }
         if (array_key_exists('anotacao', $d)) {
-            if ($row['tipo'] !== 'anotacao') json_out(['erro' => 'Não é possível editar o texto de um atendimento'], 403);
             $fields[] = 'anotacao = ?';
             $values[] = trim($d['anotacao'] ?? '');
         }

@@ -240,22 +240,28 @@ async function alterarStatusAgend(id, status) {
       const anotacaoAuto = _agendMontarAnotacaoAuto(agend);
       const temLaser     = _agendTemLaser(agend.procs || []);
 
-      // Cria o registro de atendimento no prontuário (ou ignora 409 se já existir)
-      try {
-        await window.api.prontuario.criar({
-          cliente_id:     agend.cliente_id,
-          agendamento_id: id,          // id do AGENDAMENTO
-          tipo:           'atendimento',
-          fitzpatrick:    0,
-          anotacao:       null,
-        });
-      } catch (e) {
-        if (!e.message?.includes('409')) console.warn('Prontuário:', e.message);
+      // Verifica se já existe entrada de atendimento para este agendamento
+      const entradasExistentes = await window.api.prontuario.listar(agend.cliente_id);
+      const jaExiste = entradasExistentes.some(
+        e => e.agendamento_id == id && e.tipo === 'atendimento'
+      );
+
+      if (!jaExiste) {
+        try {
+          await window.api.prontuario.criar({
+            cliente_id:     agend.cliente_id,
+            agendamento_id: id,
+            tipo:           'atendimento',
+            fitzpatrick:    0,
+            anotacao:       null,
+          });
+        } catch (e) {
+          if (!e.message?.includes('409')) console.warn('Prontuário:', e.message);
+        }
       }
 
-      // Abre o modal e depois abre o form inline diretamente no card do agendamento
+      // Abre o modal e depois o form inline diretamente no card do agendamento
       await abrirProntuario(agend.cliente_id, agend.cliente_nome);
-      // Passa o id do AGENDAMENTO (não o prontuarioId) para localizar o card
       prontAbrirEdicaoAtendimento(id, anotacaoAuto, temLaser);
     } catch (e) {
       console.warn('Erro ao abrir prontuário após conclusão:', e.message);
