@@ -21,8 +21,25 @@ async function abrirProntuario(clienteId, clienteNome) {
 
 // ── Abrir form direto em edição do atendimento recém-criado ──
 async function prontAbrirEdicaoAtendimento(agendamentoId, anotacaoAuto, temLaser) {
+  // Busca o registro de atendimento para obter o prontuario_id correto
+  let prontuarioId = null;
+  try {
+    const entradas = await window.api.prontuario.listar(_prontClienteId);
+    const registro = entradas.find(
+      e => e.agendamento_id == agendamentoId && e.tipo === 'atendimento'
+    );
+    if (registro) prontuarioId = registro.id;
+  } catch (e) {
+    console.warn('Erro ao buscar registro de atendimento:', e.message);
+  }
+
   _prontAbrirFormNoCard(
-    { agendamento_id: agendamentoId, tem_laser: temLaser ? 1 : 0 },
+    {
+      agendamento_id: agendamentoId,
+      prontuario_id:  prontuarioId,
+      tem_laser:      temLaser ? 1 : 0,
+      is_atendimento: true,
+    },
     anotacaoAuto || ''
   );
 }
