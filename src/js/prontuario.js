@@ -223,24 +223,28 @@ function _prontRenderCard(e) {
   const temLaser = !!parseInt(e.agend_tem_laser || 0);
   const cardId   = isAtendimento ? `agend-${e.agendamento_id}` : `nota-${e.id}`;
 
-  const fitzLabel = e.fitzpatrick
+  // Badge de fitzpatrick: agora aparece na linha de procedimentos
+  const fitzBadge = e.fitzpatrick
     ? `<span style="
         display:inline-block;
         background:var(--primary);
-        color:#fff;
+        color:var(--text-muted);
         padding:2px 10px;
         border-radius:20px;
         font-size:12px;
-        font-weight:600;
+        font-weight:800;
         margin-left:8px
-      ">Fitz Tipo ${e.fitzpatrick}</span>`
+      ">Intensidade Tipo ${e.fitzpatrick}</span>`
     : '';
 
   const procedimentos = e.agend_procedimentos
     ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">
         💆 ${escapeHtml(e.agend_procedimentos)}
+        ${fitzBadge}
        </div>`
-    : '';
+    : (fitzBadge
+        ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">${fitzBadge}</div>`
+        : '');
 
   const valor = e.agend_valor && parseFloat(e.agend_valor) > 0
     ? `<span style="font-size:12px;color:var(--text-muted);margin-left:8px">
@@ -267,8 +271,6 @@ function _prontRenderCard(e) {
 
   const anotacaoEscapada = (e.anotacao || '').replace(/"/g, '&quot;');
 
-  // Para cards de atendimento: data-pront-id é o id do próprio registro de atendimento
-  // O PATCH será feito diretamente nele, sem criar registro separado
   const botoesAcao = isAtendimento
     ? `<button class="btn btn-secondary btn-sm" style="font-size:12px"
          data-pront-adicionar="${cardId}"
@@ -308,7 +310,6 @@ function _prontRenderCard(e) {
             ${isAtendimento ? '📅 Atendimento' : '📝 Anotação'}
           </span>
           <span style="font-size:13px;color:var(--text-muted);margin-left:8px">${dataFormatada}</span>
-          ${fitzLabel}
           ${valor}
         </div>
         <div style="display:flex;gap:6px">${botoesAcao}</div>
