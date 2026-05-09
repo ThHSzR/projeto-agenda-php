@@ -163,6 +163,7 @@ function renderLinhasAgend(lista) {
         <button class="btn btn-whatsapp btn-sm"
           onclick="abrirWhatsApp('${a.cliente_telefone}', '${a.data_hora}', '${a.cliente_nome}')"
           title="Confirmar via WhatsApp">💬</button>
+        <button class="btn btn-secondary btn-sm" onclick="abrirProntuarioAgend(${a.id})" title="Abrir Prontuário">📋</button>
         <button class="btn btn-info btn-sm" onclick="editarAgendamento(${a.id})">✏️</button>
         <button class="btn btn-danger btn-sm" onclick="excluirAgend(${a.id})">🗑️</button>
       </td>
@@ -655,4 +656,37 @@ async function excluirAgend(id) {
 function agendHoje() {
   document.getElementById('filtro-data').value = hoje();
   filtrarAgendPorData();
+}
+
+// ── Abre prontuário direto da linha do agendamento ────────────────────────
+async function abrirProntuarioAgend(id) {
+  try {
+    const agend = await window.api.agendamentos.buscar(id);
+    const anotacaoAuto = _agendMontarAnotacaoAuto(agend);
+    const temLaser     = _agendTemLaser(agend.procs || []);
+
+    const entradasExistentes = await window.api.prontuario.listar(agend.cliente_id);
+    const jaExiste = entradasExistentes.some(
+      e => e.agendamento_id == id && e.tipo === 'atendimento'
+    );
+
+    if (!jaExiste) {
+      try {
+        await window.api.prontuario.criar({
+          cliente_id:     agend.cliente_id,
+          agendamento_id: id,
+          tipo:           'atendimento',
+          fitzpatrick:    0,
+          anotacao:       null,
+        });
+      } catch (e) {
+        if (!e.message?.includes('409')) console.warn('Prontuário:', e.message);
+      }
+    }
+
+    await abrirProntuario(agend.cliente_id, agend.cliente_nome);
+    prontAbrirEdicaoAtendimento(id, anotacaoAuto, temLaser);
+  } catch (e) {
+    toast('Erro ao abrir prontuário: ' + e.message, 'error');
+  }
 }
