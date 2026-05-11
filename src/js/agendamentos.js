@@ -563,9 +563,14 @@ async function editarAgendamento(id) {
   _agendProcsModal = [];
   _agendResetPromo();
 
-  if (a.promocao_uso) {
+  if (a.promocao_uso && !a.promocao_uso.promo_recusada) {
+    // Promoção foi aplicada e não foi cancelada pelo gerente — reidrata
     _agendAplicarPromoAuto = false;
     _agendPromoOverrideId  = a.promocao_uso.promocao_id;
+  } else if (a.promocao_uso && a.promocao_uso.promo_recusada) {
+    // Gerente cancelou a promoção intencionalmente — não reaplicar
+    _agendAplicarPromoAuto = false;
+    _agendPromoOverrideId  = null;
   }
 
   const procsExistentes = Array.isArray(a.procs) && a.procs.length > 0
@@ -608,6 +613,7 @@ async function salvarAgendamento() {
       valor_cobrado:    parseFloat(document.getElementById('agend-valor').value) || 0,
       observacoes:      document.getElementById('agend-obs').value,
       promocao_aplicada: _agendPromocaoAtual,
+      promo_recusada:    (!_agendPromocaoAtual && !_agendAplicarPromoAuto && _agendPromoOverrideId === null) ? 1 : 0,
       procs: procsValidos.map(p => ({
         procedimento_id: p.procId,
         variante_id:     p.varianteId || null,

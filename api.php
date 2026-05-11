@@ -397,7 +397,7 @@ if ($parts[0] === 'agendamentos') {
              WHERE ap.agendamento_id = ? ORDER BY ap.id"
         );
         $stmtPromo = $db->prepare(
-            "SELECT pu.desconto_aplicado, pr.nome as promocao_nome
+            "SELECT pu.promocao_id, pu.desconto_aplicado, pu.promo_recusada, pr.nome as promocao_nome
              FROM promocao_usos pu
              JOIN promocoes pr ON pr.id = pu.promocao_id
              WHERE pu.agendamento_id = ?"
@@ -441,7 +441,7 @@ if ($parts[0] === 'agendamentos') {
 
         // Promoção aplicada
         $pu = $db->prepare(
-            'SELECT pu.promocao_id, pu.desconto_aplicado, pr.nome as promocao_nome
+            'SELECT pu.promocao_id, pu.desconto_aplicado, pu.promo_recusada, pr.nome as promocao_nome
              FROM promocao_usos pu
              JOIN promocoes pr ON pr.id = pu.promocao_id
              WHERE pu.agendamento_id = ?'
@@ -519,8 +519,18 @@ if ($parts[0] === 'agendamentos') {
                 $pa = $d['promocao_aplicada'];
                 $db->prepare('DELETE FROM promocao_usos WHERE agendamento_id = ?')->execute([$agendId]);
                 $db->prepare(
-                    'INSERT INTO promocao_usos (promocao_id, agendamento_id, desconto_aplicado) VALUES (?,?,?)'
+                    'INSERT INTO promocao_usos (promocao_id, agendamento_id, desconto_aplicado, promo_recusada) VALUES (?,?,?,0)'
                 )->execute([(int)$pa['id'], $agendId, (float)($pa['desconto'] ?? 0)]);
+            } elseif (!empty($d['id'])) {
+                // Edição sem promoção: pode ser cancelamento intencional (gerente) ou ausência normal
+                // Gravar flag promo_recusada=1 se gerente sinalizou explicitamente
+                if (!empty($d['promo_recusada'])) {
+                    $db->prepare('DELETE FROM promocao_usos WHERE agendamento_id = ?')->execute([$agendId]);
+                    $db->prepare(
+                        'INSERT INTO promocao_usos (promocao_id, agendamento_id, desconto_aplicado, promo_recusada) VALUES (?,?,?,1)'
+                    )->execute([0, $agendId, 0]);
+                }
+                // Se promo_recusada não veio no payload, não altera promocao_usos (preserva estado atual)
             }
 
             $db->commit();
