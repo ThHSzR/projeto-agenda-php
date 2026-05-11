@@ -33,7 +33,7 @@ async function renderDashboard() {
   `;
 
   try {
-    const stats = await window.api.dashboard.stats();
+    const stats = await window.api.dashboard.dados();
 
     // KPIs
     document.getElementById('dash-kpis').innerHTML = `
