@@ -42,15 +42,16 @@ async function renderClientes() {
     <div class="card">
       <table>
         <thead>
-         <tr><th>Nome</th><th>Telefone</th><th>Nascimento</th><th>Ações</th></tr></thead>
+         <tr><th>Nome</th><th>Telefone</th><th>Nascimento</th><th>Descrição Geral</th><th>Ações</th></tr></thead>
         <tbody id="tbody-clientes">
           ${lista.length === 0
-      ? `<tr><td colspan="4"><div class="empty-state"><div class="icon">👤</div><p>Nenhum cliente cadastrado.</p></div></td></tr>`
+      ? `<tr><td colspan="5"><div class="empty-state"><div class="icon">👤</div><p>Nenhum cliente cadastrado.</p></div></td></tr>`
       : lista.map(c => `
               <tr data-nome="${c.nome.toLowerCase()}">
                 <td><strong>${c.nome}</strong></td>
                 <td>${c.telefone || '-'}</td>
                 <td>${fmtData(c.data_nascimento)}</td>
+                <td>${c.observacoes || '-'}</td>
                 <td>
                   <button class="btn btn-info btn-sm" onclick="editarCliente(${c.id})">✏️ Editar</button>
                   <button class="btn btn-secondary btn-sm" onclick="abrirProntuario(${c.id}, '${c.nome.replace(/'/g, "\\'")}')" >📋 Prontuário</button>
@@ -59,8 +60,8 @@ async function renderClientes() {
                     onclick="abrirWhatsApp('${c.telefone}', null)"
                     title="Abrir WhatsApp">
                     💬
-                    </button>
-                  </td>
+                  </button>
+                </td>
               </tr>`).join('')}
         </tbody>
       </table>
