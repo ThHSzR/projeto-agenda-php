@@ -357,14 +357,14 @@
 </div>
 
   <!-- ═══ MODAL CLIENTE (Ficha de Anamnese) ═══ -->
-  <div id="modal-cliente" class="modal-overlay hidden">
+<div id="modal-cliente" class="modal-overlay">
     <div class="modal modal-lg">
       <div class="modal-header">
         <h2 id="modal-cliente-title">Nova Ficha de Anamnese</h2>
         <button class="modal-close" onclick="fecharModal('modal-cliente')">✕</button>
       </div>
       <div class="modal-body" style="min-height:480px">
-        <input type="hidden" id="cli-id" />
+        <input type="hidden" id="cli-id" value="">
 
         <div class="tabs">
           <button class="tab-btn active" onclick="switchTab('tab-dados',this)">📋 Dados Pessoais</button>
@@ -377,42 +377,44 @@
           <div class="form-row">
             <div class="form-group" style="grid-column:1/-1">
               <label>Nome Completo *</label>
-              <input type="text" id="cli-nome" />
+              <input type="text" id="cli-nome">
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label>Data de Nascimento</label>
-              <input type="date" id="cli-nasc" />
+              <input type="date" id="cli-nasc">
             </div>
             <div class="form-group">
               <label>CPF *</label>
-              <input type="text" id="cli-cpf" placeholder="000.000.000-00" maxlength="14"
-                oninput="formatarCPF(this)" />
+              <input type="text" id="cli-cpf" placeholder="000.000.000-00" maxlength="14" oninput="formatarCPF(this)">
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label>Telefone / WhatsApp *</label>
-              <input type="tel" id="cli-telefone" placeholder="(00) 00000-0000" maxlength="15" required
-                oninput="formatarTelefone(this)" />
+              <input type="tel" id="cli-telefone" placeholder="(00) 00000-0000" maxlength="15" required="" oninput="formatarTelefone(this)">
             </div>
           </div>
           <div class="form-row">
             <div class="form-group" style="grid-column:1/-1">
               <label>Endereço</label>
-              <input type="text" id="cli-endereco" />
+              <input type="text" id="cli-endereco">
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label>Cidade</label>
-              <input type="text" id="cli-cidade" />
+              <input type="text" id="cli-cidade">
             </div>
             <div class="form-group" style="max-width:100px">
               <label>UF</label>
-              <input type="text" id="cli-uf" maxlength="2" placeholder="GO" />
+              <input type="text" id="cli-uf" maxlength="2" placeholder="GO">
             </div>
+          </div>
+<div class="form-group" style="margin-top:14px">
+            <label>Observações gerais</label>
+            <textarea id="cli-obs" rows="3"></textarea>
           </div>
         </div>
 
@@ -420,97 +422,143 @@
         <div id="tab-proc" class="tab-content hidden" style="min-height:420px">
           <p class="section-label">Procedimentos de interesse</p>
           <div id="cli-proc-interesse-list" class="check-group" style="flex-wrap:wrap;gap:10px">
-            <!-- preenchido via JS -->
-          </div>
+    <label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer">
+      <input type="checkbox" value="18" data-laser="0">
+      BB Glow
+    </label>
+  
+    <label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer">
+      <input type="checkbox" value="12" data-laser="1">
+      Depilação a Laser
+    </label>
+  
+    <label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer">
+      <input type="checkbox" value="17" data-laser="0">
+      Dermaplaning
+    </label>
+  
+    <label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer">
+      <input type="checkbox" value="19" data-laser="0">
+      Hidra Gloss Lips
+    </label>
+  
+    <label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer">
+      <input type="checkbox" value="15" data-laser="0">
+      Led Terapia
+    </label>
+  
+    <label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer">
+      <input type="checkbox" value="14" data-laser="0">
+      Limpeza de Pele
+    </label>
+  
+    <label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer">
+      <input type="checkbox" value="16" data-laser="0">
+      Massagem Facial
+    </label>
+  
+    <label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer">
+      <input type="checkbox" value="20" data-laser="0">
+      Microagulhamento
+    </label>
+  
+    <label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer">
+      <input type="checkbox" value="21" data-laser="0">
+      Revitalização Facial
+    </label>
+  
+    <label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer">
+      <input type="checkbox" value="13" data-laser="0">
+      Ultracavitação
+    </label>
+  </div>
         </div>
 
         <!-- ABA 3 — SAÚDE -->
         <div id="tab-saude" class="tab-content hidden" style="min-height:420px">
           <div class="anamnese-row">
             <span>Medicamento em uso?</span>
-            <label><input type="radio" name="r-med" value="1" /> Sim</label>
-            <label><input type="radio" name="r-med" value="0" checked /> Não</label>
-            <input type="text" id="cli-med-qual" placeholder="Qual?" class="inline-input" />
+            <label><input type="radio" name="r-med" value="1"> Sim</label>
+            <label><input type="radio" name="r-med" value="0" checked=""> Não</label>
+            <input type="text" id="cli-med-qual" placeholder="Qual?" class="inline-input">
           </div>
           <div class="anamnese-row">
             <span>Roacutan?</span>
-            <label><input type="radio" name="r-roac" value="1" /> Sim</label>
-            <label><input type="radio" name="r-roac" value="0" checked /> Não</label>
+            <label><input type="radio" name="r-roac" value="1"> Sim</label>
+            <label><input type="radio" name="r-roac" value="0" checked=""> Não</label>
             <span style="margin-left:12px">Tto. Vitiligo?</span>
-            <label><input type="radio" name="r-vitil" value="1" /> Sim</label>
-            <label><input type="radio" name="r-vitil" value="0" checked /> Não</label>
+            <label><input type="radio" name="r-vitil" value="1"> Sim</label>
+            <label><input type="radio" name="r-vitil" value="0" checked=""> Não</label>
           </div>
           <div class="anamnese-row">
             <span>Alergia a medicamento?</span>
-            <label><input type="radio" name="r-alergia" value="1" /> Sim</label>
-            <label><input type="radio" name="r-alergia" value="0" checked /> Não</label>
-            <input type="text" id="cli-alergia-qual" placeholder="Qual?" class="inline-input" />
+            <label><input type="radio" name="r-alergia" value="1"> Sim</label>
+            <label><input type="radio" name="r-alergia" value="0" checked=""> Não</label>
+            <input type="text" id="cli-alergia-qual" placeholder="Qual?" class="inline-input">
           </div>
           <div class="anamnese-row">
             <span>Tratamento dermato/estético?</span>
-            <label><input type="radio" name="r-derm" value="1" /> Sim</label>
-            <label><input type="radio" name="r-derm" value="0" checked /> Não</label>
-            <input type="text" id="cli-derm-qual" placeholder="Qual?" class="inline-input" />
+            <label><input type="radio" name="r-derm" value="1"> Sim</label>
+            <label><input type="radio" name="r-derm" value="0" checked=""> Não</label>
+            <input type="text" id="cli-derm-qual" placeholder="Qual?" class="inline-input">
             <span style="margin-left:8px">Ácidos?</span>
-            <label><input type="radio" name="r-acidos" value="1" /> Sim</label>
-            <label><input type="radio" name="r-acidos" value="0" checked /> Não</label>
+            <label><input type="radio" name="r-acidos" value="1"> Sim</label>
+            <label><input type="radio" name="r-acidos" value="0" checked=""> Não</label>
           </div>
           <div class="anamnese-row">
             <span>Já fez cirurgia?</span>
-            <label><input type="radio" name="r-cir" value="1" /> Sim</label>
-            <label><input type="radio" name="r-cir" value="0" checked /> Não</label>
-            <input type="text" id="cli-cir-qual" placeholder="Qual?" class="inline-input" />
+            <label><input type="radio" name="r-cir" value="1"> Sim</label>
+            <label><input type="radio" name="r-cir" value="0" checked=""> Não</label>
+            <input type="text" id="cli-cir-qual" placeholder="Qual?" class="inline-input">
           </div>
           <div class="anamnese-row">
             <span>Anticoncepcional?</span>
-            <label><input type="radio" name="r-anti" value="1" /> Sim</label>
-            <label><input type="radio" name="r-anti" value="0" checked /> Não</label>
-            <input type="text" id="cli-anti-qual" placeholder="Especifique" class="inline-input" />
+            <label><input type="radio" name="r-anti" value="1"> Sim</label>
+            <label><input type="radio" name="r-anti" value="0" checked=""> Não</label>
+            <input type="text" id="cli-anti-qual" placeholder="Especifique" class="inline-input">
           </div>
           <div class="anamnese-row">
             <span>Histórico oncológico?</span>
-            <label><input type="radio" name="r-onco" value="1" /> Sim</label>
-            <label><input type="radio" name="r-onco" value="0" checked /> Não</label>
-            <input type="text" id="cli-onco-qual" placeholder="Qual?" class="inline-input" />
+            <label><input type="radio" name="r-onco" value="1"> Sim</label>
+            <label><input type="radio" name="r-onco" value="0" checked=""> Não</label>
+            <input type="text" id="cli-onco-qual" placeholder="Qual?" class="inline-input">
           </div>
           <div class="anamnese-row">
             <span>Acompanhamento médico?</span>
-            <label><input type="radio" name="r-acomp" value="1" /> Sim</label>
-            <label><input type="radio" name="r-acomp" value="0" checked /> Não</label>
-            <input type="text" id="cli-acomp-qual" placeholder="Qual?" class="inline-input" />
+            <label><input type="radio" name="r-acomp" value="1"> Sim</label>
+            <label><input type="radio" name="r-acomp" value="0" checked=""> Não</label>
+            <input type="text" id="cli-acomp-qual" placeholder="Qual?" class="inline-input">
           </div>
           <div class="anamnese-row">
             <span>Epilepsia?</span>
-            <label><input type="radio" name="r-epil" value="1" /> Sim</label>
-            <label><input type="radio" name="r-epil" value="0" checked /> Não</label>
+            <label><input type="radio" name="r-epil" value="1"> Sim</label>
+            <label><input type="radio" name="r-epil" value="0" checked=""> Não</label>
           </div>
           <div class="anamnese-row">
             <span>Alteração hormonal?</span>
-            <label><input type="radio" name="r-horm" value="1" /> Sim</label>
-            <label><input type="radio" name="r-horm" value="0" checked /> Não</label>
-            <input type="text" id="cli-horm-qual" placeholder="Qual?" class="inline-input" />
+            <label><input type="radio" name="r-horm" value="1"> Sim</label>
+            <label><input type="radio" name="r-horm" value="0" checked=""> Não</label>
+            <input type="text" id="cli-horm-qual" placeholder="Qual?" class="inline-input">
             <span style="margin-left:8px">Hirsutismo?</span>
-            <label><input type="radio" name="r-hirsu" value="1" /> Sim</label>
-            <label><input type="radio" name="r-hirsu" value="0" checked /> Não</label>
+            <label><input type="radio" name="r-hirsu" value="1"> Sim</label>
+            <label><input type="radio" name="r-hirsu" value="0" checked=""> Não</label>
           </div>
           <div class="anamnese-row">
             <span>Gestante?</span>
-            <label><input type="radio" name="r-gest" value="1" /> Sim</label>
-            <label><input type="radio" name="r-gest" value="0" checked /> Não</label>
+            <label><input type="radio" name="r-gest" value="1"> Sim</label>
+            <label><input type="radio" name="r-gest" value="0" checked=""> Não</label>
             <span style="margin-left:10px">Lactante?</span>
-            <label><input type="radio" name="r-lact" value="1" /> Sim</label>
-            <label><input type="radio" name="r-lact" value="0" checked /> Não</label>
+            <label><input type="radio" name="r-lact" value="1"> Sim</label>
+            <label><input type="radio" name="r-lact" value="0" checked=""> Não</label>
             <span style="margin-left:10px">Herpes?</span>
-            <label><input type="radio" name="r-herpes" value="1" /> Sim</label>
-            <label><input type="radio" name="r-herpes" value="0" checked /> Não</label>
+            <label><input type="radio" name="r-herpes" value="1"> Sim</label>
+            <label><input type="radio" name="r-herpes" value="0" checked=""> Não</label>
           </div>
-          <div class="form-group" style="margin-top:14px">
-            <label>Observações gerais</label>
-            <textarea id="cli-obs" rows="3"></textarea>
-          </div>
+          
+
 
           <!-- ── Físico / Pele (unificado na aba Saúde) ── -->
-          <hr style="margin:18px 0;border-color:var(--border)"/>
+          <hr style="margin:18px 0;border-color:var(--border)">
           <p class="section-label" style="margin-bottom:10px">🧬 Características Físicas</p>
           <div class="form-row">
             <div class="form-group">
@@ -553,9 +601,9 @@
           </div>
           <div class="anamnese-row" style="margin-top:8px">
             <span>Tomou sol nos últimos 30 dias?</span>
-            <label><input type="radio" name="r-sol" value="1" /> Sim</label>
-            <label><input type="radio" name="r-sol" value="0" checked /> Não</label>
-            <input type="text" id="cli-sol-quando" placeholder="Quando?" class="inline-input" />
+            <label><input type="radio" name="r-sol" value="1"> Sim</label>
+            <label><input type="radio" name="r-sol" value="0" checked=""> Não</label>
+            <input type="text" id="cli-sol-quando" placeholder="Quando?" class="inline-input">
           </div>
         </div>
 
