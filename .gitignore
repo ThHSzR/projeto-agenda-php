@@ -5,7 +5,6 @@ app.log
 # Arquivos de debug/teste — não subir para produção
 debug.php
 teste.php
-ver_log.php
 gerar_hash.php
 
 # Dependências

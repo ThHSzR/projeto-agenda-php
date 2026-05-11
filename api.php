@@ -441,7 +441,7 @@ if ($parts[0] === 'agendamentos') {
 
         // Promoção aplicada
         $pu = $db->prepare(
-            'SELECT pu.desconto_aplicado, pr.nome as promocao_nome
+            'SELECT pu.promocao_id, pu.desconto_aplicado, pr.nome as promocao_nome
              FROM promocao_usos pu
              JOIN promocoes pr ON pr.id = pu.promocao_id
              WHERE pu.agendamento_id = ?'
