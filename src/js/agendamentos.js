@@ -563,6 +563,12 @@ async function editarAgendamento(id) {
   _agendProcsModal = [];
   _agendResetPromo();
 
+  // Restaurar manualOverride se gerente havia digitado valor customizado
+  if (a.valor_manual_gerente) {
+    const campoValorLoad = document.getElementById('agend-valor');
+    if (campoValorLoad) campoValorLoad.dataset.manualOverride = '1';
+  }
+
   if (a.promocao_uso && !a.promocao_uso.promo_recusada) {
     // Promoção foi aplicada e não foi cancelada pelo gerente — reidrata
     _agendAplicarPromoAuto = false;
@@ -610,7 +616,8 @@ async function salvarAgendamento() {
       cliente_id:       parseInt(clienteId),
       data_hora:        toDbDatetime(dataHora),
       status:           statusNovo,
-      valor_cobrado:    parseFloat(document.getElementById('agend-valor').value) || 0,
+      valor_cobrado:         parseFloat(document.getElementById('agend-valor').value) || 0,
+      valor_manual_gerente:  document.getElementById('agend-valor').dataset.manualOverride === '1' ? 1 : 0,
       observacoes:      document.getElementById('agend-obs').value,
       promocao_aplicada: _agendPromocaoAtual,
       promo_recusada:    (!_agendPromocaoAtual && !_agendAplicarPromoAuto && _agendPromoOverrideId === null) ? 1 : 0,

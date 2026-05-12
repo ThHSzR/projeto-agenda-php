@@ -477,17 +477,18 @@ if ($parts[0] === 'agendamentos') {
                 $valorUpd  = ($isGer && isset($d['valor_cobrado'])) ? (float)$d['valor_cobrado']
                            : (count($procs) > 0 ? (float)$somaV : (float)$atual['valor_cobrado']);
 
+                $valorManual = isset($d['valor_manual_gerente']) ? (int)$d['valor_manual_gerente'] : (int)($atual['valor_manual_gerente'] ?? 0);
                 $db->prepare(
                     'UPDATE agendamentos
                      SET cliente_id=?, data_hora=?, status=?, valor_cobrado=?, observacoes=?,
-                         procedimento_id=NULL, variante_id=NULL
+                         valor_manual_gerente=?, procedimento_id=NULL, variante_id=NULL
                      WHERE id=?'
-                )->execute([$clienteId, $dataHora, $status, $valorUpd, $obs, (int)$d['id']]);
+                )->execute([$clienteId, $dataHora, $status, $valorUpd, $obs, $valorManual, (int)$d['id']]);
                 $agendId = (int)$d['id'];
             } else {
                 $db->prepare(
-                    'INSERT INTO agendamentos (cliente_id, data_hora, status, valor_cobrado, observacoes)
-                     VALUES (?,?,?,?,?)'
+                    'INSERT INTO agendamentos (cliente_id, data_hora, status, valor_cobrado, observacoes, valor_manual_gerente)
+                     VALUES (?,?,?,?,?,0)'
                 )->execute([$d['cliente_id'], $d['data_hora'], $d['status'] ?? 'agendado',
                              $valorF, $d['observacoes'] ?? null]);
                 $agendId = (int)$db->lastInsertId();
