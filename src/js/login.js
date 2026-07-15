@@ -1,7 +1,19 @@
 'use strict';
 
-const basePath = location.pathname.replace(/\/src\/.*$/, '');
+function publicBasePath(pathname = location.pathname) {
+  const cleanPath = pathname.replace(/\/+$/, '');
+  const base = cleanPath
+    .replace(/\/src(?:\/.*)?$/, '')
+    .replace(/\/login$/, '');
+  return base === '/' ? '' : base;
+}
+
+const basePath = publicBasePath();
 const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
+
+if (/\/src\/login\.html$/.test(location.pathname)) {
+  history.replaceState(null, '', `${basePath}/login`);
+}
 
 function loginApiUrl(route) {
   return isLocal
@@ -18,7 +30,7 @@ function showLoginError(message) {
 async function checkSession() {
   try {
     const response = await fetch(loginApiUrl('me'), { credentials: 'same-origin' });
-    if (response.ok) location.replace(`${basePath}/src/index.html`);
+    if (response.ok) location.replace(`${basePath}/`);
   } catch {
     // A tela continua utilizavel e exibira o erro se o login for tentado.
   }
@@ -61,7 +73,7 @@ async function handleLogin(event) {
       return;
     }
 
-    location.replace(`${basePath}/src/index.html`);
+    location.replace(`${basePath}/`);
   } catch {
     showLoginError('Não foi possível conectar ao servidor.');
   } finally {

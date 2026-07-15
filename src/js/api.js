@@ -3,7 +3,10 @@
 // Ex: XAMPP em /projeto-agenda-php/ → _basePath = '/projeto-agenda-php'
 //     Produção na raiz             → _basePath = ''
 const _isLocal  = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-const _basePath = location.pathname.replace(/\/src\/.*$/, '');
+const _cleanPath = location.pathname.replace(/\/+$/, '');
+const _basePath = (_cleanPath
+  .replace(/\/src(?:\/.*)?$/, '')
+  .replace(/\/login$/, '')) || '';
 
 const api = {
   async _fetch(method, url, body) {
@@ -27,7 +30,7 @@ const api = {
     const res = await fetch(fullUrl, opts);
 
     if (res.status === 401) {
-      window.location.href = `${_basePath}/src/login.html`;
+      window.location.href = `${_basePath}/login`;
       return;
     }
 

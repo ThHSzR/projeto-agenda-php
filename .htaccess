@@ -6,6 +6,13 @@ RewriteRule ^(?:\.git|bin|tests|backups)(?:/|$) - [F,L,NC]
 
 AddDefaultCharset UTF-8
 
+# URLs publicas limpas. Os arquivos continuam organizados dentro de /src,
+# mas o navegador exibe apenas / para o app e /login para a autenticacao.
+RewriteRule ^$ src/index.html [L]
+RewriteRule ^login/?$ src/login.html [L]
+RewriteRule ^(css|js)/(.*)$ src/$1/$2 [L]
+RewriteRule ^(favicon\.(?:png|ico)|logo(?:-transparent)?\.png)$ src/$1 [L]
+
 # Bloqueia configuracoes, dados e documentacao no diretorio publico.
 <FilesMatch "(^\.|\.(env|ini|sql|md|log|zip)$|^(config|config\.local|db|logger)\.php$)">
   Require all denied
@@ -24,7 +31,6 @@ RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-RewriteRule ^$ src/login.html [L]
 RewriteRule ^api/(.+)$ api.php?_route=$1 [QSA,L]
 RewriteRule ^api$ api.php [QSA,L]
 

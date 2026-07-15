@@ -84,7 +84,14 @@ function _criarNavLink(nav, pagina, icone, label, opts = {}) {
 }
 
 // Base path para redirecionamentos
-const _appBasePath = location.pathname.replace(/\/src\/.*$/, '');
+const _appCleanPath = location.pathname.replace(/\/+$/, '');
+const _appBasePath = (_appCleanPath
+  .replace(/\/src(?:\/.*)?$/, '')
+  .replace(/\/login$/, '')) || '';
+
+if (/\/src\/index\.html$/.test(location.pathname)) {
+  history.replaceState(null, '', `${_appBasePath}/${location.hash}`);
+}
 
 // Verificação de sessão + montagem dinâmica da sidebar
 (async () => {
@@ -140,7 +147,7 @@ const _appBasePath = location.pathname.replace(/\/src\/.*$/, '');
       btnLogout.innerHTML = `<span class="icon">${uiIcon('logout')}</span> Sair`;
       btnLogout.addEventListener('click', async () => {
         await window.api.auth.logout();
-        location.href = `${_appBasePath}/src/login.html`;
+        location.href = `${_appBasePath}/login`;
       });
       nav.appendChild(btnLogout);
     }
@@ -149,7 +156,7 @@ const _appBasePath = location.pathname.replace(/\/src\/.*$/, '');
     iniciarMonitorAgendamentos();
   } catch (e) {
     // Não autenticado — redireciona para login
-    location.href = `${_appBasePath}/src/login.html`;
+    location.href = `${_appBasePath}/login`;
   }
 })();
 
