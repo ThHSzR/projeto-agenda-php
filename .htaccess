@@ -1,47 +1,33 @@
-# ═══════════════════════════════════════════════════════
-# Agenda Pessoal — .htaccess (Apache / HostGator)
-# ═══════════════════════════════════════════════════════
-
 Options -Indexes
 RewriteEngine On
 
-# ============================================================
-# MODO LOCAL (XAMPP/subpasta):
-#   - Descomente a linha RewriteBase abaixo substituindo
-#     "projeto-agenda-php" pelo nome real da sua pasta.
-# MODO PRODUÇÃO (raiz do domínio):
-#   - Deixe RewriteBase comentado.
-# ============================================================
-# RewriteBase /projeto-agenda-php/
+# Nunca publicar ferramentas internas, testes, backups ou metadados do Git.
+RewriteRule ^(?:\.git|bin|tests|backups)(?:/|$) - [F,L,NC]
 
-# ── Segurança: bloquear acesso direto a arquivos sensíveis ──
-<FilesMatch "\.(env|sql|md|log)$">
-  Order Allow,Deny
-  Deny from all
+AddDefaultCharset UTF-8
+
+# Bloqueia configuracoes, dados e documentacao no diretorio publico.
+<FilesMatch "(^\.|\.(env|ini|sql|md|log|zip)$|^(config|config\.local|db|logger)\.php$)">
+  Require all denied
 </FilesMatch>
 
-<FilesMatch "^(config|db|logger)\.php$">
-  Order Allow,Deny
-  Deny from all
-</FilesMatch>
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+</IfModule>
 
-# ── Arquivos/pastas físicos → serve direto (exceto API) ──
+# Arquivos e pastas existentes sao servidos diretamente, exceto a API.
 RewriteCond %{REQUEST_URI} !^(/[^/]+)?/api
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# ── Raiz → login ──
 RewriteRule ^$ src/login.html [L]
-
-# ── Rotas da API → api.php ──
 RewriteRule ^api/(.+)$ api.php?_route=$1 [QSA,L]
-RewriteRule ^api$       api.php          [QSA,L]
+RewriteRule ^api$ api.php [QSA,L]
 
-# ── Charset padrão ──
-AddDefaultCharset UTF-8
-
-# ── Cache de assets estáticos ──
 <IfModule mod_expires.c>
   ExpiresActive On
   ExpiresByType text/css "access plus 1 week"
@@ -51,7 +37,6 @@ AddDefaultCharset UTF-8
   ExpiresByType image/svg+xml "access plus 1 month"
 </IfModule>
 
-# ── Compressão gzip ──
 <IfModule mod_deflate.c>
   AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json
 </IfModule>

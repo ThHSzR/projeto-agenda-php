@@ -4,7 +4,7 @@ async function renderProcedimentos() {
 
   page.innerHTML = `
     <div class="page-header">
-      <h1>💆 Procedimentos</h1>
+      <div><span class="page-eyebrow">Catálogo</span><h1>Procedimentos</h1></div>
       <button class="btn btn-primary" onclick="abrirNovoProcedimento()">+ Novo Procedimento</button>
     </div>
     <div class="card">
@@ -14,19 +14,20 @@ async function renderProcedimentos() {
         </thead>
         <tbody>
           ${lista.length === 0
-            ? `<tr><td colspan="5"><div class="empty-state"><div class="icon">💆</div><p>Nenhum procedimento cadastrado.</p></div></td></tr>`
+            ? `<tr><td colspan="5"><div class="empty-state modern-empty">${uiIcon('procedures')}<p>Nenhum procedimento cadastrado.</p></div></td></tr>`
             : lista.map(p => `
               <tr>
                 <td>
-                  <strong>${p.nome}</strong>
-                  ${p.descricao ? `<br><small style="color:var(--text-muted)">${p.descricao}</small>` : ''}
+                  <strong>${escapeHtml(p.nome)}</strong>
+                  ${p.is_laser ? '<span class="procedure-kind-badge">Laser</span>' : ''}
+                  ${p.descricao ? `<br><small style="color:var(--text-muted)">${escapeHtml(p.descricao)}</small>` : ''}
                 </td>
                 <td>${p.tem_variantes ? '<em style="color:var(--text-muted)">Ver variantes</em>' : p.duracao_min + ' min'}</td>
                 <td>${p.tem_variantes ? '—' : fmtMoeda(p.valor)}</td>
                 <td><span class="badge ${p.ativo ? 'badge-concluido' : 'badge-cancelado'}">${p.ativo ? 'Ativo' : 'Inativo'}</span></td>
                 <td>
-                  <button class="btn btn-info btn-sm" onclick="editarProcedimento(${p.id})">✏️ Editar</button>
-                  <button class="btn btn-danger btn-sm" onclick="inativarProcedimento(${p.id})">${p.ativo ? '🚫 Inativar' : '✅ Ativar'}</button>
+                  <button class="btn btn-info btn-sm btn-icon" onclick="editarProcedimento(${p.id})" title="Editar" aria-label="Editar">${uiIcon('edit')}</button>
+                  <button class="btn ${p.ativo ? 'btn-danger' : 'btn-success'} btn-sm" onclick="inativarProcedimento(${p.id})">${p.ativo ? 'Inativar' : 'Ativar'}</button>
                 </td>
               </tr>`).join('')}
         </tbody>
@@ -46,13 +47,13 @@ function _renderVariantesTemp() {
   }
   tbody.innerHTML = _variantesTemp.map((v, i) => `
     <tr>
-      <td>${v.nome}</td>
-      <td>${v.descricao || '—'}</td>
+      <td>${escapeHtml(v.nome)}</td>
+      <td>${escapeHtml(v.descricao || '—')}</td>
       <td>${v.duracao_min} min</td>
       <td>${fmtMoeda(v.valor)}</td>
       <td>
-        <button class="btn btn-info btn-sm" onclick="_editarVarianteTemp(${i})">✏️</button>
-        <button class="btn btn-danger btn-sm" onclick="_removerVarianteTemp(${i})">🗑️</button>
+        <button class="btn btn-info btn-sm btn-icon" onclick="_editarVarianteTemp(${i})" title="Editar variante" aria-label="Editar variante">${uiIcon('edit')}</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="_removerVarianteTemp(${i})" title="Remover variante" aria-label="Remover variante">${uiIcon('trash')}</button>
       </td>
     </tr>
   `).join('');
@@ -110,6 +111,7 @@ function abrirNovoProcedimento() {
   document.getElementById('proc-duracao').value = '60';
   document.getElementById('proc-valor').value   = '';
   document.getElementById('proc-desc').value    = '';
+  document.getElementById('proc-is-laser').checked = false;
   document.getElementById('proc-tem-variantes').checked = false;
   _variantesTemp = [];
   _toggleVariantes();
@@ -128,6 +130,7 @@ async function editarProcedimento(id) {
   document.getElementById('proc-duracao').value = p.duracao_min;
   document.getElementById('proc-valor').value   = p.valor;
   document.getElementById('proc-desc').value    = p.descricao || '';
+  document.getElementById('proc-is-laser').checked = Number(p.is_laser) === 1;
   document.getElementById('proc-tem-variantes').checked = !!p.tem_variantes;
 
   _variantesTemp = p.tem_variantes
@@ -156,6 +159,7 @@ async function salvarProcedimento() {
     duracao_min:   parseInt(document.getElementById('proc-duracao').value) || 60,
     valor:         parseFloat(document.getElementById('proc-valor').value) || 0,
     ativo:         1,
+    is_laser:      document.getElementById('proc-is-laser').checked ? 1 : 0,
     tem_variantes: temVariantes ? 1 : 0,
   });
 

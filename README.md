@@ -1,196 +1,78 @@
-# Agenda Pessoal — Clínica de Estética (PHP + MySQL)
+# Beauty & Beauty — Agenda
 
-Sistema completo de agendamento para clínicas de estética e depilação a laser, desenvolvido em **PHP + MySQL** para hospedagem compartilhada (HostGator, Locaweb, etc.).
-
-## Funcionalidades
-
-| Módulo | Descrição |
-|---|---|
-| **Dashboard** | KPIs em tempo real: agendamentos do dia/semana, faturamento, taxa de conclusão, top procedimentos |
-| **Agendamentos** | CRUD completo com múltiplos procedimentos por sessão, cálculo automático de promoção, envio via WhatsApp |
-| **Clientes** | Ficha completa de anamnese (40+ campos), histórico de atendimentos |
-| **Procedimentos** | Cadastro com variantes (ex: Depilação a Laser → Axilas, Buço, Costas), preços e durações individuais |
-| **Promoções** | Sistema avançado com regras por procedimento/variante, modos lista fechada e quantidade mínima, vigência, dias da semana, limite de usos |
-| **Financeiro** | Resumo e detalhado por período, exportação CSV, promoção aplicada por agendamento |
-| **Relatórios** | Faturamento mensal (gráfico de barras) e ranking de clientes frequentes |
-| **Bloqueios** | Bloqueio de horários (almoço, manutenção, férias) com suporte a recorrência |
-| **Usuários** | Controle de acesso por cargo (admin, gerente, operador), troca de cargo inline |
-| **Log de Atividades** | Registro automático de todas as ações do sistema |
-| **Backup** | Download do banco completo em formato SQL |
+Aplicação web para agenda, clientes, prontuário, procedimentos, promoções e gestão financeira de uma clínica de estética. O backend é PHP/PDO com MySQL ou MariaDB; o frontend é uma SPA em JavaScript sem dependências de build.
 
 ## Requisitos
 
-- PHP 7.4+ (recomendado 8.0+)
+- PHP 8.0 ou superior com PDO MySQL
 - MySQL 5.7+ ou MariaDB 10.3+
-- Extensão PDO habilitada
-- mod_rewrite habilitado (Apache)
+- Apache com `mod_rewrite`, `mod_headers`, `mod_expires` e `mod_deflate`
 
----
+## Instalação
 
-## Instalação no HostGator
+1. Crie um banco com charset `utf8mb4` e importe `migrate.sql`.
+2. Copie `config.local.php.example` para `config.local.php` e informe as credenciais. O arquivo local não é versionado. Também é possível usar `DB_HOST`, `DB_NAME`, `DB_USER` e `DB_PASS` no ambiente.
+3. Crie o primeiro administrador apenas pela linha de comando:
 
-### 1. Criar o banco de dados
-
-Acesse o **phpMyAdmin** pelo cPanel:
-
-1. Vá em **Bancos de Dados MySQL** → crie um banco (ex: `seuusuario_agenda`)
-2. Crie um usuário MySQL e associe ao banco com **TODOS OS PRIVILÉGIOS**
-3. No phpMyAdmin, selecione o banco e clique em **Importar** → selecione o arquivo `migrate.sql`
-
-### 2. Configurar credenciais
-
-Edite o arquivo `config.php` com as credenciais do seu banco:
-
-```php
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'seuusuario_agenda');
-define('DB_USER', 'seuusuario_user');
-define('DB_PASS', 'sua_senha_segura');
+```bash
+php bin/create-admin.php administrador "uma-senha-segura"
 ```
 
-### 3. Upload dos arquivos
+4. Aponte o Apache para o diretório do projeto e acesse `/src/login.html`.
 
-Via **Gerenciador de Arquivos** do cPanel ou FTP, envie todos os arquivos para a pasta `public_html` (ou subpasta):
+Não existe criação automática de administrador em produção. Em produção, use HTTPS e mantenha `config.local.php` fora do controle de versão.
 
-```
-public_html/
-├── .htaccess
-├── api.php
-├── config.php
-├── db.php
-├── logger.php
-├── migrate.sql
-└── src/
-    ├── index.html
-    ├── login.html
-    ├── css/style.css
-    └── js/ (todos os .js)
-```
+## Perfis de acesso
 
-### 4. Primeiro acesso
-
-Acesse `https://seudominio.com/src/login.html`
-
-**Credenciais padrão:**
-- Usuário: `admin`
-- Senha: `admin123`
-
-**Importante:** Troque a senha imediatamente após o primeiro login.
-
----
-
-## Estrutura do Projeto
-
-```
-├── .htaccess          # Rewrite rules e segurança
-├── api.php            # Backend: 30+ endpoints REST
-├── config.php         # Credenciais do banco
-├── db.php             # Conexão PDO singleton
-├── logger.php         # Sistema de log
-├── migrate.sql        # Schema MySQL (13 tabelas)
-└── src/
-    ├── index.html     # SPA principal
-    ├── login.html     # Tela de login
-    ├── css/
-    │   └── style.css  # Tema roxo/rosa profissional
-    └── js/
-        ├── api.js           # Camada de comunicação com backend
-        ├── app.js           # Roteamento SPA e sidebar
-        ├── agendamentos.js  # CRUD + cálculo automático de promoção
-        ├── bloqueios.js     # CRUD de bloqueios de horário
-        ├── calendario.js    # Visualização dia/semana/mês
-        ├── clientes.js      # Ficha de anamnese completa
-        ├── dashboard.js     # KPIs + top procedimentos
-        ├── financeiro.js    # Resumo + detalhado + CSV
-        ├── logs.js          # Visualização de log de atividades
-        ├── procedimentos.js # CRUD com variantes
-        ├── promocoes.js     # CRUD com regras de itens
-        ├── relatorios.js    # Faturamento mensal + clientes frequentes
-        ├── usuarios.js      # CRUD + troca de cargo + backup
-        └── utils.js         # Toast, modal, formatação
-```
-
----
-
-## Cargos e Permissões
-
-| Cargo | Pode fazer |
+| Perfil | Permissões |
 |---|---|
-| **admin** | Tudo + gerenciar usuários + backup + logs |
-| **gerente** | Tudo exceto gerenciar usuários |
-| **operador** | Agendar, consultar clientes, ver procedimentos |
+| Administrador | Acesso completo, usuários, logs e backup |
+| Gerente | Operação, cadastros, promoções, financeiro, bloqueios e relatórios |
+| Operador | Calendário, agendamentos, clientes e prontuário |
 
----
+As permissões são verificadas na API; ocultar um item da interface não é usado como controle de segurança.
 
-## API Endpoints
+## Estrutura
 
-| Método | Rota | Descrição |
-|---|---|---|
-| POST | `/login` | Autenticação |
-| POST | `/logout` | Encerrar sessão |
-| GET | `/me` | Dados do usuário logado |
-| GET/POST | `/clientes` | CRUD de clientes |
-| GET | `/clientes/:id/historico` | Histórico de atendimentos |
-| GET/POST | `/cliente-procedimentos` | Procedimentos de interesse |
-| GET/POST | `/cliente-variantes` | Variantes de interesse |
-| GET/POST/DELETE | `/procedimentos` | CRUD de procedimentos |
-| GET/POST/DELETE | `/variantes` | CRUD de variantes |
-| GET/POST/DELETE | `/agendamentos` | CRUD de agendamentos |
-| PATCH | `/agendamentos/:id/status` | Alterar status |
-| GET/POST/DELETE | `/promocoes` | CRUD de promoções |
-| POST | `/promocoes/calcular` | Cálculo automático de desconto |
-| GET/POST/DELETE | `/bloqueios` | CRUD de bloqueios |
-| GET | `/financeiro/resumo` | Resumo financeiro |
-| GET | `/financeiro/detalhado` | Detalhado por período |
-| GET | `/dashboard` | KPIs e estatísticas |
-| GET | `/relatorios/faturamento-mensal` | Gráfico de faturamento |
-| GET | `/relatorios/clientes-frequentes` | Ranking de clientes |
-| GET | `/logs` | Log de atividades |
-| GET | `/backup` | Download SQL do banco |
-| GET/POST/DELETE | `/usuarios` | CRUD de usuários |
-| PATCH | `/usuarios/:id/cargo` | Trocar cargo |
+```text
+api.php                 API e regras de negócio
+config.php              configuração por ambiente
+config.local.php.example modelo de configuração local
+db.php                  conexão PDO
+logger.php              integração com o log do PHP/servidor
+migrate.sql             esquema e atualizações idempotentes
+bin/create-admin.php     criação segura do primeiro administrador
+src/                    interface web
+```
 
----
+## Verificações locais
 
-## Bugs Corrigidos nesta Versão
+```powershell
+Get-ChildItem -Recurse -Filter *.php | ForEach-Object { C:\xampp\php\php.exe -l $_.FullName }
+Get-ChildItem src\js -Filter *.js | ForEach-Object { node --check $_.FullName }
+```
 
-### Críticos
+Para uma regressão de volume, o script abaixo cria 300 agendamentos e 24 clientes temporários, testa bloqueio semanal e remove toda a massa ao terminar:
 
-| # | Problema | Correção |
-|---|----------|----------|
-| 1 | Scripts duplicados no `index.html` → `SyntaxError` fatal | Removida duplicação |
-| 2 | `app.js` usava seletores inexistentes (`.nav-btn`) | Corrigido para `.nav-link` |
-| 3 | `#main-content` vs `#content` inconsistente | Padronizado para `#main-content` |
-| 4 | `GROUP BY` incompleto → `ERROR 1055` no MySQL 5.7+ | Adicionadas colunas faltantes |
-| 5 | Agendamentos sem transação PDO | Adicionado `beginTransaction/commit/rollBack` |
-| 6 | Edição parcial de agendamento falhava (`cliente_id NULL`) | Busca dados atuais antes do UPDATE |
-| 7 | Regras de promoção sem `tipo_regra` → NOT NULL constraint | Inferência automática no backend |
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\stress-api.ps1 -Count 300
+```
 
-### Melhorias
+Use `-KeepData` somente quando precisar inspecionar a carga manualmente no navegador. Bloqueios e colisões de horário são validados na API, inclusive ao editar ou reativar um agendamento cancelado.
 
-| # | Melhoria |
-|---|----------|
-| 1 | `api.js` com `_basePath` dinâmico (funciona em qualquer subpasta) |
-| 2 | CORS refletindo `HTTP_ORIGIN` em vez de `*` |
-| 3 | Rate limiting em `/login` (5 tentativas/minuto) |
-| 4 | Sessão com cookie seguro (`httponly`, `samesite`) |
-| 5 | Log de atividades automático em todas as ações |
+Em `APP_ENV=development`, duas ferramentas restritas a localhost ficam disponíveis:
 
----
+- `/debug.php`: estado do PHP, banco e credenciais locais `admin/admin`.
+- `/ver_log.php`: últimas linhas do `app.log`, atualizado a cada três segundos.
 
-## Diferenças em Relação ao Node.js Original
+O banco de desenvolvimento pode usar `admin/admin`. Essas credenciais não devem ser copiadas para produção.
 
-| Aspecto | Node.js | PHP |
-|---------|---------|-----|
-| Banco de dados | SQLite (arquivo `clinica.db`) | MySQL/MariaDB |
-| Criação de tabelas | Automática na inicialização | Manual via `migrate.sql` |
-| Sessões | express-session em memória | PHP nativo (arquivos em `/tmp`) |
-| Hash de senha | bcryptjs | `password_hash()` com `PASSWORD_BCRYPT` |
-| Transações | `db.transaction()` nativo | PDO `beginTransaction()` |
-| Rate limit | express-rate-limit | Arquivo JSON em `/tmp` |
+A migração pode ser reaplicada: ela cria tabelas ausentes e atualiza as colunas e relações necessárias para versões anteriores do banco.
 
----
+## Segurança operacional
 
-## Licença
-
-Projeto privado. Todos os direitos reservados.
+- Sessões usam cookies `HttpOnly`, `SameSite=Strict` e `Secure` quando HTTPS está ativo.
+- A API aceita apenas a mesma origem; não há CORS reflexivo.
+- Configurações, SQL, logs, documentação e arquivos de ambiente são bloqueados pelo Apache.
+- Logs técnicos vão para o log configurado do PHP e não para um arquivo público.
+- Backups contêm dados pessoais e devem ser armazenados e transmitidos com proteção adequada.

@@ -13,7 +13,7 @@ async function abrirProntuario(clienteId, clienteNome) {
   _prontFormAbertoPara = null;
 
   document.getElementById('modal-pront-title').textContent =
-    `📋 Prontuário — ${clienteNome}`;
+    `Prontuário — ${clienteNome}`;
 
   await _prontCarregar();
   abrirModal('modal-prontuario');
@@ -55,8 +55,8 @@ async function _prontCarregar() {
 
     if (!entradas || entradas.length === 0) {
       timeline.innerHTML = `
-        <div style="text-align:center;padding:48px 16px;color:var(--text-muted)">
-          <div style="font-size:40px;margin-bottom:12px">📋</div>
+        <div class="empty-state modern-empty">
+          ${uiIcon('logs')}
           <p style="font-size:15px">Nenhum registro ainda.</p>
           <p style="font-size:13px;margin-top:4px">Os atendimentos concluídos aparecerão aqui automaticamente.</p>
         </div>`;
@@ -147,7 +147,7 @@ function _prontAbrirFormNoCard(ctx, textoInicial) {
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
         <button class="btn btn-secondary btn-sm" onclick="_prontFecharFormInline()">Cancelar</button>
         <button class="btn btn-primary btn-sm" onclick="_prontSalvarInline(${agendId ?? 'null'}, ${pronId ?? 'null'}, ${isAtend})">
-          💾 Salvar
+          Salvar anotação
         </button>
       </div>
     </div>`;
@@ -239,7 +239,7 @@ function _prontRenderCard(e) {
 
   const procedimentos = e.agend_procedimentos
     ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">
-        💆 ${escapeHtml(e.agend_procedimentos)}
+        ${escapeHtml(e.agend_procedimentos)}
         ${fitzBadge}
        </div>`
     : (fitzBadge
@@ -248,7 +248,7 @@ function _prontRenderCard(e) {
 
   const valor = e.agend_valor && parseFloat(e.agend_valor) > 0
     ? `<span style="font-size:12px;color:var(--text-muted);margin-left:8px">
-        💰 ${fmtMoeda(e.agend_valor)}
+        ${fmtMoeda(e.agend_valor)}
        </span>`
     : '';
 
@@ -269,7 +269,7 @@ function _prontRenderCard(e) {
            </div>`
         : '');
 
-  const anotacaoEscapada = (e.anotacao || '').replace(/"/g, '&quot;');
+  const anotacaoEscapada = escapeHtml(e.anotacao || '');
 
   const botoesAcao = isAtendimento
     ? `<button class="btn btn-secondary btn-sm" style="font-size:12px"
@@ -280,7 +280,7 @@ function _prontRenderCard(e) {
          data-pront-fitz="${e.fitzpatrick || 0}"
          data-pront-laser="${temLaser ? '1' : '0'}"
          data-pront-is-atend="1">
-         ✏️ ${e.anotacao ? 'Editar Anotação' : 'Adicionar Anotação'}
+         ${uiIcon('edit')} ${e.anotacao ? 'Editar anotação' : 'Adicionar anotação'}
        </button>`
     : `<button class="btn btn-secondary btn-sm" style="font-size:12px"
          data-pront-adicionar="${cardId}"
@@ -289,12 +289,10 @@ function _prontRenderCard(e) {
          data-pront-txt="${anotacaoEscapada}"
          data-pront-laser="0"
          data-pront-is-atend="0">
-         ✏️ Editar
+         ${uiIcon('edit')} Editar
        </button>
-       <button class="btn btn-danger btn-sm" style="font-size:12px"
-         data-pront-excluir="${e.id}">
-         🗑️
-       </button>`;
+       <button class="btn btn-danger btn-sm btn-icon" style="font-size:12px"
+         data-pront-excluir="${e.id}" title="Excluir anotação" aria-label="Excluir anotação">${uiIcon('trash')}</button>`;
 
   return `
     <div data-card-id="${cardId}" style="
@@ -307,7 +305,7 @@ function _prontRenderCard(e) {
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <div>
           <span style="font-size:13px;font-weight:600;color:var(--text)">
-            ${isAtendimento ? '📅 Atendimento' : '📝 Anotação'}
+            ${isAtendimento ? 'Atendimento' : 'Anotação'}
           </span>
           <span style="font-size:13px;color:var(--text-muted);margin-left:8px">${dataFormatada}</span>
           ${valor}
@@ -317,14 +315,6 @@ function _prontRenderCard(e) {
       ${procedimentos}
       ${anotacaoHtml}
     </div>`;
-}
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 // ── Abrir form de nova anotação avulsa ─────────────

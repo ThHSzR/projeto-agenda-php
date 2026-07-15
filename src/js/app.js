@@ -14,16 +14,38 @@ const paginas = {
 
 let paginaAtual = 'dashboard';
 
+function _podeAcessarPagina(pagina) {
+  const sessao = window._session;
+  if (!sessao) return pagina === 'dashboard';
+  if (sessao.is_admin) return true;
+  const comuns = ['dashboard', 'calendario', 'agendamentos', 'clientes'];
+  if (comuns.includes(pagina)) return true;
+  if (sessao.cargo === 'gerente') {
+    return ['procedimentos', 'financeiro', 'promocoes', 'bloqueios', 'relatorios'].includes(pagina);
+  }
+  return false;
+}
+
 function navegar(pagina) {
+  if (!_podeAcessarPagina(pagina)) {
+    toast('Seu perfil não tem acesso a este módulo.', 'error');
+    pagina = 'dashboard';
+  }
   const pageEl = document.getElementById(`page-${pagina}`);
   const navEl  = document.querySelector(`[data-page="${pagina}"]`);
   if (!pageEl) return;
 
   document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-  document.querySelectorAll('.nav-link').forEach(a => a.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(a => {
+    a.classList.remove('active');
+    a.removeAttribute('aria-current');
+  });
 
   pageEl.classList.remove('hidden');
-  if (navEl) navEl.classList.add('active');
+  if (navEl) {
+    navEl.classList.add('active');
+    navEl.setAttribute('aria-current', 'page');
+  }
 
   paginaAtual = pagina;
   if (paginas[pagina]) paginas[pagina]();
@@ -31,7 +53,10 @@ function navegar(pagina) {
 
 // Registra cliques nos links estáticos do HTML
 document.querySelectorAll('.nav-link').forEach(a => {
-  a.addEventListener('click', () => navegar(a.dataset.page));
+  a.addEventListener('click', event => {
+    event.preventDefault();
+    navegar(a.dataset.page);
+  });
 });
 
 // Helper: cria um link de navegação na sidebar
@@ -47,9 +72,13 @@ function _criarNavLink(nav, pagina, icone, label, opts = {}) {
   const a = document.createElement('a');
   a.className = 'nav-link';
   a.dataset.page = pagina;
+  a.href = `#${pagina}`;
   if (opts.style) a.style = opts.style;
-  a.innerHTML = `<span class="icon">${icone}</span> ${label}`;
-  a.addEventListener('click', () => navegar(pagina));
+  a.innerHTML = `<span class="icon">${uiIcon(icone)}</span> ${label}`;
+  a.addEventListener('click', event => {
+    event.preventDefault();
+    navegar(pagina);
+  });
   nav.appendChild(a);
   return a;
 }
@@ -69,7 +98,7 @@ const _appBasePath = location.pathname.replace(/\/src\/.*$/, '');
 
     // Esconde abas restritas para operadores
     if (isOperador) {
-      ['dashboard', 'procedimentos', 'financeiro', 'promocoes'].forEach(p => {
+      ['procedimentos', 'financeiro', 'promocoes'].forEach(p => {
         const link = document.querySelector(`[data-page="${p}"]`);
         if (link) link.style.display = 'none';
       });
@@ -82,16 +111,16 @@ const _appBasePath = location.pathname.replace(/\/src\/.*$/, '');
       nav.appendChild(sep);
 
       if (isGerente) {
-        _criarNavLink(nav, 'bloqueios', '🚫', 'Bloqueios');
+        _criarNavLink(nav, 'bloqueios', 'blocks', 'Bloqueios');
       }
       if (isGerente) {
-        _criarNavLink(nav, 'relatorios', '📈', 'Relatórios');
+        _criarNavLink(nav, 'relatorios', 'reports', 'Relatórios');
       }
       if (is_admin) {
-        _criarNavLink(nav, 'usuarios', '⚙️', 'Usuários');
+        _criarNavLink(nav, 'usuarios', 'users', 'Usuários');
       }
       if (is_admin) {
-        _criarNavLink(nav, 'logs', '📝', 'Logs');
+        _criarNavLink(nav, 'logs', 'logs', 'Logs');
       }
 
       const sep2 = document.createElement('hr');
@@ -99,14 +128,16 @@ const _appBasePath = location.pathname.replace(/\/src\/.*$/, '');
       nav.appendChild(sep2);
 
       const userInfo = document.createElement('div');
+      userInfo.className = 'sidebar-user';
       userInfo.style = 'padding:8px 16px;font-size:11px;color:rgba(255,255,255,0.6)';
-      userInfo.innerHTML = `👤 ${usuario} <span style="opacity:0.5">(${cargo || 'admin'})</span>`;
+      userInfo.innerHTML = `<span class="user-avatar">${escapeHtml(usuario).charAt(0).toUpperCase()}</span><span><strong>${escapeHtml(usuario)}</strong><small>${escapeHtml(cargo || 'admin')}</small></span>`;
       nav.appendChild(userInfo);
 
       const btnLogout = document.createElement('a');
       btnLogout.className = 'nav-link';
+      btnLogout.href = '#sair';
       btnLogout.style = 'color:rgba(255,200,200,0.9);cursor:pointer';
-      btnLogout.innerHTML = '<span class="icon">🚪</span> Sair';
+      btnLogout.innerHTML = `<span class="icon">${uiIcon('logout')}</span> Sair`;
       btnLogout.addEventListener('click', async () => {
         await window.api.auth.logout();
         location.href = `${_appBasePath}/src/login.html`;
@@ -114,9 +145,19 @@ const _appBasePath = location.pathname.replace(/\/src\/.*$/, '');
       nav.appendChild(btnLogout);
     }
 
-    navegar(isOperador ? 'calendario' : 'dashboard');
+    navegar('dashboard');
+    iniciarMonitorAgendamentos();
   } catch (e) {
     // Não autenticado — redireciona para login
     location.href = `${_appBasePath}/src/login.html`;
   }
 })();
+
+document.querySelectorAll('[data-icon]').forEach(el => {
+  el.innerHTML = uiIcon(el.dataset.icon);
+});
+
+document.querySelectorAll('.form-group label:not([for])').forEach(label => {
+  const control = label.parentElement?.querySelector('input[id], select[id], textarea[id]');
+  if (control?.id) label.htmlFor = control.id;
+});

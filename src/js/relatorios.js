@@ -4,13 +4,13 @@ async function renderRelatorios() {
 
   page.innerHTML = `
     <div class="page-header">
-      <h1>📈 Relatórios</h1>
+      <div><span class="page-eyebrow">Indicadores</span><h1>Relatórios</h1></div>
     </div>
 
     <!-- Faturamento Mensal -->
     <div class="card" style="margin-bottom:16px">
       <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-        <span>💰 Faturamento Mensal</span>
+        <span>${uiIcon('finance')} Faturamento mensal</span>
         <select id="rel-fat-meses" onchange="_relCarregarFaturamento()" style="padding:4px 8px;border-radius:var(--radius);border:1px solid var(--border)">
           <option value="6">Últimos 6 meses</option>
           <option value="12" selected>Últimos 12 meses</option>
@@ -18,14 +18,14 @@ async function renderRelatorios() {
         </select>
       </div>
       <div class="card-body" id="rel-fat-body" style="min-height:200px">
-        <div class="empty-state"><div class="icon">⏳</div><p>Carregando...</p></div>
+        <div class="empty-state"><p>Carregando faturamento...</p></div>
       </div>
     </div>
 
     <!-- Clientes Frequentes -->
     <div class="card" style="margin-bottom:16px">
       <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-        <span>🏆 Clientes Mais Frequentes</span>
+        <span>${uiIcon('clients')} Clientes mais frequentes</span>
         <select id="rel-cli-limite" onchange="_relCarregarClientes()" style="padding:4px 8px;border-radius:var(--radius);border:1px solid var(--border)">
           <option value="5">Top 5</option>
           <option value="10" selected>Top 10</option>
@@ -33,7 +33,7 @@ async function renderRelatorios() {
         </select>
       </div>
       <div class="card-body" id="rel-cli-body" style="min-height:200px">
-        <div class="empty-state"><div class="icon">⏳</div><p>Carregando...</p></div>
+        <div class="empty-state"><p>Carregando clientes...</p></div>
       </div>
     </div>
   `;
@@ -49,20 +49,21 @@ async function _relCarregarFaturamento() {
   try {
     const dados = await window.api.relatorios.faturamentoMensal(meses);
     if (!dados || dados.length === 0) {
-      body.innerHTML = '<div class="empty-state"><div class="icon">💰</div><p>Sem dados de faturamento.</p></div>';
+      body.innerHTML = `<div class="empty-state modern-empty">${uiIcon('finance')}<p>Sem dados de faturamento.</p></div>`;
       return;
     }
 
-    const maxVal = Math.max(...dados.map(d => d.total));
+    const maxVal = Math.max(...dados.map(d => Number(d.faturado || 0)));
 
     body.innerHTML = `
       <div style="display:flex;align-items:flex-end;gap:6px;height:200px;padding:16px 0">
         ${dados.map(d => {
-          const pct = maxVal > 0 ? Math.max((d.total / maxVal) * 100, 4) : 4;
+          const total = Number(d.faturado || 0);
+          const pct = maxVal > 0 ? Math.max((total / maxVal) * 100, 4) : 4;
           const mesLabel = d.mes.slice(5);
           return `
             <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
-              <span style="font-size:10px;font-weight:600;color:var(--success)">${fmtMoeda(d.total)}</span>
+              <span style="font-size:10px;font-weight:600;color:var(--success)">${fmtMoeda(total)}</span>
               <div style="width:100%;max-width:48px;height:${pct}%;background:linear-gradient(to top, var(--rosa-botao), var(--rosa-hover));border-radius:4px 4px 0 0;min-height:4px;transition:height 0.5s"></div>
               <span style="font-size:10px;color:var(--text-muted)">${mesLabel}</span>
             </div>`;
@@ -70,11 +71,11 @@ async function _relCarregarFaturamento() {
       </div>
       <div style="display:flex;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border);margin-top:8px">
         <span style="font-size:12px;color:var(--text-muted)">Total no período:</span>
-        <strong style="color:var(--success)">${fmtMoeda(dados.reduce((s, d) => s + d.total, 0))}</strong>
+        <strong style="color:var(--success)">${fmtMoeda(dados.reduce((s, d) => s + Number(d.faturado || 0), 0))}</strong>
       </div>
     `;
   } catch (e) {
-    body.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>Erro ao carregar: ${e.message}</p></div>`;
+    body.innerHTML = `<div class="empty-state"><p>Erro ao carregar: ${escapeHtml(e.message)}</p></div>`;
   }
 }
 
@@ -86,12 +87,11 @@ async function _relCarregarClientes() {
   try {
     const dados = await window.api.relatorios.clientesFrequentes(limite);
     if (!dados || dados.length === 0) {
-      body.innerHTML = '<div class="empty-state"><div class="icon">🏆</div><p>Sem dados de clientes.</p></div>';
+      body.innerHTML = `<div class="empty-state modern-empty">${uiIcon('clients')}<p>Sem dados de clientes.</p></div>`;
       return;
     }
 
-    const maxTotal = dados[0]?.total || 1;
-    const medals = ['🥇', '🥈', '🥉'];
+    const maxTotal = Number(dados[0]?.total_agendamentos || 1);
 
     body.innerHTML = `
       <table style="width:100%">
@@ -106,14 +106,15 @@ async function _relCarregarClientes() {
         </thead>
         <tbody>
           ${dados.map((c, i) => {
-            const pct = Math.round((c.total / maxTotal) * 100);
-            const medal = medals[i] || `${i + 1}.`;
+            const totalAgendamentos = Number(c.total_agendamentos || 0);
+            const pct = Math.round((totalAgendamentos / maxTotal) * 100);
+            const medal = String(i + 1).padStart(2, '0');
             return `
             <tr>
               <td style="font-size:16px;text-align:center">${medal}</td>
-              <td><strong>${c.nome}</strong></td>
-              <td style="text-align:center;font-weight:600">${c.total}</td>
-              <td style="text-align:right;color:var(--success);font-weight:600">${fmtMoeda(c.valor_total)}</td>
+              <td><strong>${escapeHtml(c.nome)}</strong></td>
+              <td style="text-align:center;font-weight:600">${totalAgendamentos}</td>
+              <td style="text-align:right;color:var(--success);font-weight:600">${fmtMoeda(c.total_gasto)}</td>
               <td>
                 <div style="background:var(--surface-2);border-radius:4px;height:8px;overflow:hidden">
                   <div style="width:${pct}%;height:100%;background:var(--rosa-botao);border-radius:4px;transition:width 0.5s"></div>
@@ -125,6 +126,6 @@ async function _relCarregarClientes() {
       </table>
     `;
   } catch (e) {
-    body.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>Erro ao carregar: ${e.message}</p></div>`;
+    body.innerHTML = `<div class="empty-state"><p>Erro ao carregar: ${escapeHtml(e.message)}</p></div>`;
   }
 }

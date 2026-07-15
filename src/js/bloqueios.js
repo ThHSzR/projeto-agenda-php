@@ -4,7 +4,7 @@ async function renderBloqueios() {
 
   page.innerHTML = `
     <div class="page-header">
-      <h1>🚫 Bloqueios de Horário</h1>
+      <div><span class="page-eyebrow">Disponibilidade</span><h1>Bloqueios de horário</h1></div>
       <button class="btn btn-primary" onclick="abrirNovoBloqueio()">+ Novo Bloqueio</button>
     </div>
     <div class="card">
@@ -13,7 +13,7 @@ async function renderBloqueios() {
           <tr><th>Título</th><th>Início</th><th>Fim</th><th>Motivo</th><th>Recorrente</th><th>Ações</th></tr>
         </thead>
         <tbody id="tbody-bloqueios">
-          <tr><td colspan="6"><div class="empty-state"><div class="icon">⏳</div><p>Carregando...</p></div></td></tr>
+          <tr><td colspan="6"><div class="empty-state"><p>Carregando bloqueios...</p></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -29,20 +29,20 @@ async function _carregarBloqueios() {
     if (!tbody) return;
 
     if (lista.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="icon">🚫</div><p>Nenhum bloqueio cadastrado.</p></div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><p>Nenhum bloqueio cadastrado.</p></div></td></tr>`;
       return;
     }
 
     tbody.innerHTML = lista.map(b => `
       <tr>
-        <td><strong>${b.titulo || 'Bloqueado'}</strong></td>
+        <td><strong>${escapeHtml(b.titulo || 'Bloqueado')}</strong></td>
         <td>${fmtDataHora(b.data_hora_inicio)}</td>
         <td>${fmtDataHora(b.data_hora_fim)}</td>
-        <td style="color:var(--text-muted);font-size:12px">${b.motivo || '—'}</td>
-        <td>${b.recorrente ? '<span style="color:var(--info)">🔄 Sim</span>' : '—'}</td>
+        <td style="color:var(--text-muted);font-size:12px">${escapeHtml(b.motivo || '—')}</td>
+        <td>${b.recorrente ? '<span class="badge badge-agendado">Semanal</span>' : 'Não'}</td>
         <td>
-          <button class="btn btn-info btn-sm" onclick="editarBloqueio(${b.id})">✏️</button>
-          <button class="btn btn-danger btn-sm" onclick="excluirBloqueio(${b.id})">🗑️</button>
+          <button class="btn btn-info btn-sm" onclick="editarBloqueio(${b.id})">Editar</button>
+          <button class="btn btn-danger btn-sm" onclick="excluirBloqueio(${b.id})">Excluir</button>
         </td>
       </tr>
     `).join('');
@@ -52,15 +52,37 @@ async function _carregarBloqueios() {
 }
 
 function abrirNovoBloqueio() {
+  const start = new Date();
+  start.setSeconds(0, 0);
+  start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15);
+  if (start.getHours() >= 21) {
+    start.setDate(start.getDate() + 1);
+    start.setHours(9, 0, 0, 0);
+  }
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+  const localValue = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   document.getElementById('bloqueio-id').value = '';
   document.getElementById('bloqueio-titulo').value = '';
-  document.getElementById('bloqueio-inicio').value = '';
-  document.getElementById('bloqueio-fim').value = '';
+  document.getElementById('bloqueio-inicio').value = localValue(start);
+  document.getElementById('bloqueio-fim').value = localValue(end);
   document.getElementById('bloqueio-motivo').value = '';
   document.getElementById('bloqueio-recorrente').checked = false;
   document.getElementById('modal-bloqueio-title').textContent = 'Novo Bloqueio';
   abrirModal('modal-bloqueio');
 }
+
+document.addEventListener('change', event => {
+  if (event.target?.id !== 'bloqueio-inicio') return;
+  const start = new Date(event.target.value);
+  const endInput = document.getElementById('bloqueio-fim');
+  if (!endInput || Number.isNaN(start.getTime())) return;
+  const currentEnd = new Date(endInput.value);
+  if (!endInput.value || currentEnd <= start) {
+    const suggestedEnd = new Date(start.getTime() + 60 * 60 * 1000);
+    endInput.value = `${suggestedEnd.getFullYear()}-${String(suggestedEnd.getMonth() + 1).padStart(2, '0')}-${String(suggestedEnd.getDate()).padStart(2, '0')}T${String(suggestedEnd.getHours()).padStart(2, '0')}:${String(suggestedEnd.getMinutes()).padStart(2, '0')}`;
+    refreshTemporalInputs(document.getElementById('modal-bloqueio'));
+  }
+});
 
 async function editarBloqueio(id) {
   try {
@@ -85,6 +107,10 @@ async function salvarBloqueio() {
   const inicio = document.getElementById('bloqueio-inicio').value;
   const fim = document.getElementById('bloqueio-fim').value;
   if (!inicio || !fim) { toast('Preencha início e fim.', 'error'); return; }
+  if (new Date(fim) <= new Date(inicio)) {
+    toast('O fim do bloqueio deve ser posterior ao início.', 'error');
+    return;
+  }
 
   try {
     await window.api.bloqueios.salvar({

@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Agenda</title>
-  <link rel="stylesheet" href="./css/style.css" />
+  <link rel="stylesheet" href="./css/style.css?v=20260714.release" />
   <style>
     /* ── Autocomplete cliente ── */
     .cliente-search-wrapper {
@@ -76,16 +76,16 @@
 
     <aside id="sidebar">
       <div class="brand">
-        <img src="./logo.png" alt="Beauty &amp; Beauty" class="sidebar-logo">
+        <img src="./logo-transparent.png" alt="Beauty &amp; Beauty" class="sidebar-logo">
       </div>
       <nav>
-        <a class="nav-link" data-page="dashboard"><span class="icon">📊</span> Dashboard</a>
-        <a class="nav-link" data-page="calendario"><span class="icon">📅</span> Calendário</a>
-        <a class="nav-link" data-page="agendamentos"><span class="icon">📋</span> Agendamentos</a>
-        <a class="nav-link" data-page="clientes"><span class="icon">👤</span> Clientes</a>
-        <a class="nav-link" data-page="procedimentos"><span class="icon">💆</span> Procedimentos</a>
-        <a class="nav-link" data-page="financeiro"><span class="icon">💰</span> Financeiro</a>
-        <a class="nav-link" data-page="promocoes"><span class="icon">🏷️</span> Promoções</a>
+        <a href="#dashboard" class="nav-link" data-page="dashboard"><span class="icon" data-icon="dashboard"></span> Dashboard</a>
+        <a href="#calendario" class="nav-link" data-page="calendario"><span class="icon" data-icon="calendar"></span> Calendário</a>
+        <a href="#agendamentos" class="nav-link" data-page="agendamentos"><span class="icon" data-icon="appointments"></span> Agendamentos</a>
+        <a href="#clientes" class="nav-link" data-page="clientes"><span class="icon" data-icon="clients"></span> Clientes</a>
+        <a href="#procedimentos" class="nav-link" data-page="procedimentos"><span class="icon" data-icon="procedures"></span> Procedimentos</a>
+        <a href="#financeiro" class="nav-link" data-page="financeiro"><span class="icon" data-icon="finance"></span> Financeiro</a>
+        <a href="#promocoes" class="nav-link" data-page="promocoes"><span class="icon" data-icon="promos"></span> Promoções</a>
       </nav>
     </aside>
 
@@ -109,7 +109,7 @@
   <div class="modal modal-lg" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2 id="modal-agend-title">Novo Agendamento</h2>
-      <button class="modal-close" onclick="fecharModal('modal-agendamento')">✕</button>
+      <button class="modal-close" aria-label="Fechar" onclick="fecharModal('modal-agendamento')"></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="agend-id"/>
@@ -123,7 +123,7 @@
             <input
               type="text"
               id="agend-cliente-input"
-              placeholder="🔍 Buscar cliente pelo nome..."
+              placeholder="Buscar cliente pelo nome..."
               autocomplete="off"
               oninput="_agendFiltrarClientes(this.value)"
               onkeydown="_agendSearchKeydown(event)"
@@ -142,25 +142,27 @@
 
       <!-- Procedimentos -->
       <div class="form-group">
-        <label style="display:flex;justify-content:space-between;align-items:center">
-          <span>Procedimentos *</span>
-          <button class="btn btn-secondary btn-sm" onclick="_agendAdicionarProc()">+ Adicionar</button>
-        </label>
+        <div class="procedure-section-header">
+          <span class="procedure-section-title">Procedimentos *</span>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="_agendAdicionarProc()">+ Adicionar</button>
+        </div>
         <div id="agend-procs-lista" style="display:flex;flex-direction:column;gap:8px;margin-top:4px"></div>
       </div>
 
       <!-- Totais -->
-      <div style="display:flex;gap:16px;margin-top:4px;background:var(--surface-2);border-radius:var(--radius);padding:10px 14px">
+      <div class="appointment-summary">
         <span style="font-size:12px;color:var(--text-muted)">
-          ⏱ Duração total: <strong id="agend-total-duracao">0 min</strong>
+          Duração total: <strong id="agend-total-duracao">0 min</strong>
         </span>
         <span style="font-size:12px;color:var(--text-muted)">
-          💰 Subtotal: <strong id="agend-total-valor">R$ 0,00</strong>
+          Subtotal: <strong id="agend-total-valor">R$ 0,00</strong>
         </span>
       </div>
 
       <!-- Promoção info -->
       <div id="agend-promo-info"></div>
+
+      <div id="agend-conflict-alert" class="schedule-alert hidden" role="alert"></div>
 
       <!-- Controles de promoção (apenas gerente) -->
       <div id="agend-promo-controles" style="display:none;gap:8px;margin-top:6px;flex-wrap:wrap;align-items:center">
@@ -170,7 +172,7 @@
           const v = document.getElementById('agend-valor');
           v.dataset.manualOverride = '0';
           _agendRecalcularPromocao();
-        ">🔄 Reaplicar promoção automática</button>
+        ">Reaplicar promoção automática</button>
 
         <button class="btn btn-secondary btn-sm" onclick="
           _agendAplicarPromoAuto = false;
@@ -178,7 +180,7 @@
           _agendPromocaoAtual    = null;
           document.getElementById('agend-promo-info').innerHTML = '';
           _agendRecalcular();
-        ">❌ Remover promoção</button>
+        ">Remover promoção</button>
       </div>
 
       <!-- Valor cobrado + Status -->
@@ -192,9 +194,9 @@
         <div class="form-group" style="flex:1">
           <label>Status</label>
           <select id="agend-status">
-            <option value="agendado">🕐 Agendado</option>
-            <option value="concluido">✅ Concluído</option>
-            <option value="cancelado">❌ Cancelado</option>
+            <option value="agendado">Agendado</option>
+            <option value="concluido">Concluído</option>
+            <option value="cancelado">Cancelado</option>
           </select>
         </div>
       </div>
@@ -207,13 +209,12 @@
     </div>
 
     <div class="modal-footer">
-      <button id="agend-whatsapp-btn" class="btn btn-whatsapp"
-        style="display:none;margin-right:auto"
+      <button type="button" id="agend-whatsapp-btn" class="btn btn-whatsapp appointment-context-action hidden"
         onclick="_agendWhatsApp()">
-        💬 WhatsApp
+        WhatsApp
       </button>
       <button class="btn btn-secondary" onclick="fecharModal('modal-agendamento')">Cancelar</button>
-      <button class="btn btn-primary" onclick="salvarAgendamento()">💾 Salvar</button>
+      <button class="btn btn-primary" onclick="salvarAgendamento()">Salvar agendamento</button>
     </div>
   </div>
 </div>
@@ -221,11 +222,52 @@
 <!-- ══════════════════════════════════════════════════════
      MODAL — PROMOÇÃO
 ══════════════════════════════════════════════════════ -->
+<!-- Alerta operacional exibido quando um atendimento atinge o horario marcado. -->
+<div id="modal-agendamento-alerta" class="modal-overlay appointment-alert-overlay hidden"
+  role="dialog" aria-modal="true" aria-labelledby="agend-alert-title">
+  <div class="appointment-alert-card">
+    <div class="appointment-alert-topline">
+      <span class="appointment-alert-pulse" aria-hidden="true"></span>
+      <span>Horário do atendimento</span>
+      <span id="agend-alert-queue" class="appointment-alert-queue hidden"></span>
+    </div>
+    <div id="agend-alert-primary">
+      <div class="appointment-alert-icon" aria-hidden="true"><span data-icon="clock"></span></div>
+      <p class="appointment-alert-kicker">É agora</p>
+      <h2 id="agend-alert-title">Atendimento agendado</h2>
+      <p id="agend-alert-procedure" class="appointment-alert-procedure"></p>
+      <time id="agend-alert-time" class="appointment-alert-time"></time>
+      <p class="appointment-alert-question">Como está o atendimento?</p>
+      <div class="appointment-alert-actions" aria-label="Atualizar situação do atendimento">
+        <button type="button" class="appointment-alert-action is-present" onclick="_agendResponderAlerta('concluido')">
+          <strong>Está presente</strong><span>Concluir atendimento</span>
+        </button>
+        <button type="button" class="appointment-alert-action is-late" onclick="_agendResponderAlerta('atrasado')">
+          <strong>Está atrasado</strong><span>Manter como atrasado</span>
+        </button>
+        <button type="button" class="appointment-alert-action is-absent" onclick="_agendResponderAlerta('cancelado')">
+          <strong>Não compareceu</strong><span>Cancelar agendamento</span>
+        </button>
+      </div>
+    </div>
+    <div id="agend-alert-whatsapp" class="appointment-alert-whatsapp hidden">
+      <div class="appointment-alert-icon is-whatsapp" aria-hidden="true"><span data-icon="whatsapp"></span></div>
+      <p class="appointment-alert-kicker">Cliente atrasado</p>
+      <h2>Deseja enviar uma mensagem?</h2>
+      <p id="agend-alert-whatsapp-copy">Podemos abrir o WhatsApp com uma mensagem pronta para o cliente.</p>
+      <div class="appointment-alert-whatsapp-actions">
+        <button type="button" id="agend-alert-send-whatsapp" class="btn btn-whatsapp" onclick="_agendEnviarWhatsAppAlerta()">Enviar pelo WhatsApp</button>
+        <button type="button" class="btn btn-secondary" onclick="_agendFinalizarAlerta()">Agora não</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="modal-promocao" class="modal-overlay hidden">
   <div class="modal modal-lg">
     <div class="modal-header">
       <h2 id="modal-promo-title">Nova Promoção</h2>
-      <button class="modal-close" onclick="fecharModal('modal-promocao')">✕</button>
+      <button class="modal-close" aria-label="Fechar" onclick="fecharModal('modal-promocao')"></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="promo-id"/>
@@ -268,7 +310,7 @@
           </select>
         </div>
         <div class="form-group">
-          <label title="Só usado no modo Mínimo: quantos itens precisam estar no agendamento para a promoção ser aplicada">Itens mínimos ❓</label>
+          <label title="Só usado no modo Mínimo: quantos itens precisam estar no agendamento para a promoção ser aplicada">Itens mínimos</label>
           <input type="number" id="promo-qtd-min" min="1" placeholder="Ex: 2 (modo Mínimo)"/>
         </div>
         <div class="form-group">
@@ -351,7 +393,7 @@
 
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="fecharModal('modal-promocao')">Cancelar</button>
-      <button class="btn btn-primary" onclick="salvarPromocao()">💾 Salvar</button>
+      <button class="btn btn-primary" onclick="salvarPromocao()">Salvar promoção</button>
     </div>
   </div>
 </div>
@@ -362,15 +404,15 @@
     <div class="modal modal-lg">
       <div class="modal-header">
         <h2 id="modal-cliente-title">Nova Ficha de Anamnese</h2>
-        <button class="modal-close" onclick="fecharModal('modal-cliente')">✕</button>
+        <button class="modal-close" aria-label="Fechar" onclick="fecharModal('modal-cliente')"></button>
       </div>
       <div class="modal-body" style="min-height:480px">
         <input type="hidden" id="cli-id" value="">
 
         <div class="tabs">
-          <button class="tab-btn active" onclick="switchTab('tab-dados',this)">📋 Dados Pessoais</button>
-          <button class="tab-btn" onclick="switchTab('tab-proc',this)">💆 Procedimentos</button>
-          <button class="tab-btn" onclick="switchTab('tab-saude',this)">🏥 Saúde</button>
+          <button class="tab-btn active" onclick="switchTab('tab-dados',this)">Dados pessoais</button>
+          <button class="tab-btn" onclick="switchTab('tab-proc',this)">Procedimentos</button>
+          <button class="tab-btn" onclick="switchTab('tab-saude',this)">Saúde</button>
         </div>
 
         <!-- ABA 1 — DADOS PESSOAIS -->
@@ -560,7 +602,7 @@
 
           <!-- ── Físico / Pele (unificado na aba Saúde) ── -->
           <hr style="margin:18px 0;border-color:var(--border)">
-          <p class="section-label" style="margin-bottom:10px">🧬 Características Físicas</p>
+          <p class="section-label" style="margin-bottom:10px">Características físicas</p>
           <div class="form-row">
             <div class="form-group">
               <label>Cor dos olhos</label>
@@ -611,7 +653,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="fecharModal('modal-cliente')">Cancelar</button>
-        <button class="btn btn-primary" onclick="salvarCliente()">💾 Salvar Ficha</button>
+        <button class="btn btn-primary" onclick="salvarCliente()">Salvar ficha</button>
       </div>
     </div>
   </div>
@@ -623,13 +665,13 @@
   <div class="modal modal-lg" onclick="event.stopPropagation()" style="max-width:700px">
     <div class="modal-header">
       <h2 id="modal-pront-title">Prontuário</h2>
-      <button class="modal-close" onclick="fecharModal('modal-prontuario')">✕</button>
+      <button class="modal-close" aria-label="Fechar" onclick="fecharModal('modal-prontuario')"></button>
     </div>
     <div class="modal-body" style="min-height:480px">
 
       <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
         <button class="btn btn-primary btn-sm" onclick="prontAbrirNovaAnotacao()">
-          ✏️ + Nova Anotação
+          Nova anotação
         </button>
       </div>
 
@@ -667,7 +709,7 @@
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
           <button class="btn btn-secondary btn-sm" onclick="prontCancelarForm()">Cancelar</button>
-          <button class="btn btn-primary btn-sm" onclick="prontSalvarAnotacao()">💾 Salvar</button>
+          <button class="btn btn-primary btn-sm" onclick="prontSalvarAnotacao()">Salvar</button>
         </div>
       </div>
 
@@ -687,7 +729,7 @@
     <div class="modal">
       <div class="modal-header">
         <h2 id="modal-proc-title">Novo Procedimento</h2>
-        <button class="modal-close" onclick="fecharModal('modal-procedimento')">✕</button>
+        <button class="modal-close" aria-label="Fechar" onclick="fecharModal('modal-procedimento')"></button>
       </div>
       <div class="modal-body">
         <input type="hidden" id="proc-id" />
@@ -700,6 +742,10 @@
           <input type="text" id="proc-desc" />
         </div>
         <div class="check-group" style="margin-bottom:12px;gap:20px">
+          <label>
+            <input type="checkbox" id="proc-is-laser" />
+            É um procedimento de depilação a laser
+          </label>
           <label>
             <input type="checkbox" id="proc-tem-variantes" onchange="_toggleVariantes()" />
             Possui variantes (preços/durações diferentes)
@@ -764,7 +810,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="fecharModal('modal-procedimento')">Cancelar</button>
-        <button class="btn btn-primary" onclick="salvarProcedimento()">💾 Salvar</button>
+        <button class="btn btn-primary" onclick="salvarProcedimento()">Salvar procedimento</button>
       </div>
     </div>
   </div>
@@ -776,7 +822,7 @@
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2 id="modal-bloqueio-title">Novo Bloqueio</h2>
-      <button class="modal-close" onclick="fecharModal('modal-bloqueio')">✕</button>
+      <button class="modal-close" aria-label="Fechar" onclick="fecharModal('modal-bloqueio')"></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="bloqueio-id"/>
@@ -805,26 +851,26 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="fecharModal('modal-bloqueio')">Cancelar</button>
-      <button class="btn btn-primary" onclick="salvarBloqueio()">💾 Salvar</button>
+      <button class="btn btn-primary" onclick="salvarBloqueio()">Salvar bloqueio</button>
     </div>
   </div>
 </div>
 
-  <script src="./js/utils.js"></script>
-  <script src="./js/api.js"></script>
-  <script src="./js/calendario.js"></script>
-  <script src="./js/clientes.js"></script>
-  <script src="./js/procedimentos.js"></script>
-  <script src="./js/prontuario.js"></script>
-  <script src="./js/agendamentos.js"></script>
-  <script src="./js/financeiro.js"></script>
-  <script src="./js/promocoes.js"></script>
-  <script src="./js/bloqueios.js"></script>
-  <script src="./js/relatorios.js"></script>
-  <script src="./js/logs.js"></script>
-  <script src="./js/dashboard.js"></script>
-  <script src="./js/usuarios.js"></script>
-  <script src="./js/app.js"></script>
+  <script src="./js/utils.js?v=20260714.release"></script>
+  <script src="./js/api.js?v=20260714.release"></script>
+  <script src="./js/calendario.js?v=20260714.release"></script>
+  <script src="./js/clientes.js?v=20260714.release"></script>
+  <script src="./js/procedimentos.js?v=20260714.release"></script>
+  <script src="./js/prontuario.js?v=20260714.release"></script>
+  <script src="./js/agendamentos.js?v=20260714.release"></script>
+  <script src="./js/financeiro.js?v=20260714.release"></script>
+  <script src="./js/promocoes.js?v=20260714.release"></script>
+  <script src="./js/bloqueios.js?v=20260714.release"></script>
+  <script src="./js/relatorios.js?v=20260714.release"></script>
+  <script src="./js/logs.js?v=20260714.release"></script>
+  <script src="./js/dashboard.js?v=20260714.release"></script>
+  <script src="./js/usuarios.js?v=20260714.release"></script>
+  <script src="./js/app.js?v=20260714.release"></script>
 </body>
 
 </html>

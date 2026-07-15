@@ -21,7 +21,7 @@ const api = {
       const [path, qs] = url.replace(/^\//, '').split('?');
       fullUrl = `${_basePath}/api.php?_route=${path}${qs ? '&' + qs : ''}`;
     } else {
-      fullUrl = '/api' + url;
+      fullUrl = `${_basePath}/api${url}`;
     }
 
     const res = await fetch(fullUrl, opts);
@@ -32,7 +32,13 @@ const api = {
     }
 
     const data = await res.json();
-    if (!res.ok) throw new Error(data.erro || `Erro HTTP ${res.status}`);
+    if (!res.ok) {
+      const error = new Error(data.erro || `Erro HTTP ${res.status}`);
+      error.status = res.status;
+      error.code = data.codigo || null;
+      error.details = data.conflito || null;
+      throw error;
+    }
     return data;
   },
 
@@ -79,6 +85,7 @@ const api = {
     salvar:  (dados) => api._fetch('POST', '/agendamentos', dados),
     excluir: (id) => api._fetch('DELETE', `/agendamentos/${id}`),
     status:  ({ id, status }) => api._fetch('PATCH', `/agendamentos/${id}/status`, { status }),
+    processarVencidos: () => api._fetch('POST', '/agendamentos/processar-vencidos'),
   },
   financeiro: {
     resumo:    (f) => api._fetch('GET', `/financeiro/resumo?inicio=${f.inicio}&fim=${f.fim}`),
@@ -104,7 +111,7 @@ const api = {
   },
   relatorios: {
     faturamentoMensal:  (meses) => api._fetch('GET', `/relatorios/faturamento-mensal?meses=${meses || 6}`),
-    clientesFrequentes: () => api._fetch('GET', '/relatorios/clientes-frequentes'),
+    clientesFrequentes: (limite) => api._fetch('GET', `/relatorios/clientes-frequentes?limite=${limite || 10}`),
   },
   logs: {
     listar: (limite) => api._fetch('GET', `/logs?limite=${limite || 100}`),
@@ -118,7 +125,7 @@ const api = {
       if (_isLocal) {
         url = `${_basePath}/api.php?_route=backup`;
       } else {
-        url = '/api/backup';
+        url = `${_basePath}/api/backup`;
       }
       window.open(url, '_blank');
     },

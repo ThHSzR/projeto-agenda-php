@@ -27,52 +27,69 @@ function _getCheckedIds(containerSelector) {
 }
 
 // ── render lista ──────────────────────────────────────────────
+const CLIENTES_RENDER_LIMIT = 75;
+let _clientesCache = [];
+
+function _renderClientesLinhas(lista) {
+  if (lista.length === 0) {
+    return `<tr><td colspan="5"><div class="empty-state modern-empty">${uiIcon('clients')}<p>Nenhum cliente encontrado.</p></div></td></tr>`;
+  }
+  return lista.map(c => `
+    <tr data-nome="${escapeHtml(c.nome.toLowerCase())}">
+      <td><strong>${escapeHtml(c.nome)}</strong></td>
+      <td>${escapeHtml(c.telefone || c.celular || '-')}</td>
+      <td>${fmtData(c.data_nascimento)}</td>
+      <td>${escapeHtml(c.observacoes || '-')}</td>
+      <td>
+        <button class="btn btn-info btn-sm btn-icon" onclick="editarCliente(${c.id})" title="Editar ficha" aria-label="Editar ficha">${uiIcon('edit')}</button>
+        <button class="btn btn-secondary btn-sm btn-icon" onclick="abrirProntuario(${c.id}, decodeURIComponent('${encodeURIComponent(c.nome)}'))" title="Prontuário" aria-label="Prontuário">${uiIcon('logs')}</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="excluirCliente(${c.id})" title="Excluir" aria-label="Excluir">${uiIcon('trash')}</button>
+        <button class="btn btn-whatsapp btn-sm btn-icon"
+          onclick="abrirWhatsApp(decodeURIComponent('${encodeURIComponent(c.telefone || c.celular || '')}'), null)"
+          title="Abrir WhatsApp" aria-label="Abrir WhatsApp">${uiIcon('whatsapp')}</button>
+      </td>
+    </tr>`).join('');
+}
+
+function _atualizarResumoClientes(totalFiltrado) {
+  const resumo = document.getElementById('clientes-count');
+  if (!resumo) return;
+  const exibidos = Math.min(totalFiltrado, CLIENTES_RENDER_LIMIT);
+  resumo.textContent = `Exibindo ${exibidos} de ${totalFiltrado} cliente(s)${totalFiltrado > CLIENTES_RENDER_LIMIT ? '. Digite na busca para refinar.' : ''}`;
+}
+
 async function renderClientes() {
-  const lista = await window.api.clientes.listar();
+  _clientesCache = await window.api.clientes.listar();
   const page = document.getElementById('page-clientes');
 
   page.innerHTML = `
     <div class="page-header">
-      <h1>👤 Clientes</h1>
+      <div><span class="page-eyebrow">Relacionamento</span><h1>Clientes</h1></div>
       <button class="btn btn-primary" onclick="abrirNovoCliente()">+ Nova Ficha</button>
     </div>
     <div class="search-bar">
-      <input type="text" id="busca-cliente" placeholder="🔍 Buscar por nome..." oninput="filtrarClientes()"/>
+      <input type="search" id="busca-cliente" placeholder="Buscar por nome ou telefone..." oninput="filtrarClientes()"/>
+      <span id="clientes-count" class="list-summary"></span>
     </div>
     <div class="card">
       <table>
         <thead>
          <tr><th>Nome</th><th>Telefone</th><th>Nascimento</th><th>Descrição Geral</th><th>Ações</th></tr></thead>
         <tbody id="tbody-clientes">
-          ${lista.length === 0
-      ? `<tr><td colspan="5"><div class="empty-state"><div class="icon">👤</div><p>Nenhum cliente cadastrado.</p></div></td></tr>`
-      : lista.map(c => `
-              <tr data-nome="${c.nome.toLowerCase()}">
-                <td><strong>${c.nome}</strong></td>
-                <td>${c.telefone || '-'}</td>
-                <td>${fmtData(c.data_nascimento)}</td>
-                <td>${c.observacoes || '-'}</td>
-                <td>
-                  <button class="btn btn-info btn-sm" onclick="editarCliente(${c.id})">✏️ Editar</button>
-                  <button class="btn btn-secondary btn-sm" onclick="abrirProntuario(${c.id}, '${c.nome.replace(/'/g, "\\'")}')" >📋 Prontuário</button>
-                  <button class="btn btn-danger btn-sm" onclick="excluirCliente(${c.id})">🗑️</button>
-                  <button class="btn btn-whatsapp btn-sm"
-                    onclick="abrirWhatsApp('${c.telefone}', null)"
-                    title="Abrir WhatsApp">
-                    💬
-                  </button>
-                </td>
-              </tr>`).join('')}
+          ${_renderClientesLinhas(_clientesCache.slice(0, CLIENTES_RENDER_LIMIT))}
         </tbody>
       </table>
     </div>`;
+  _atualizarResumoClientes(_clientesCache.length);
 }
 
 function filtrarClientes() {
-  const q = document.getElementById('busca-cliente').value.toLowerCase();
-  document.querySelectorAll('#tbody-clientes tr[data-nome]').forEach(tr => {
-    tr.style.display = tr.dataset.nome.includes(q) ? '' : 'none';
-  });
+  const q = document.getElementById('busca-cliente').value.trim().toLowerCase();
+  const filtrados = q
+    ? _clientesCache.filter(c => `${c.nome} ${c.telefone || ''} ${c.celular || ''}`.toLowerCase().includes(q))
+    : _clientesCache;
+  document.getElementById('tbody-clientes').innerHTML = _renderClientesLinhas(filtrados.slice(0, CLIENTES_RENDER_LIMIT));
+  _atualizarResumoClientes(filtrados.length);
 }
 
 // ── popular checkboxes de procedimentos ───────────────────────
@@ -83,7 +100,7 @@ async function _popularProcs() {
   listProc.innerHTML = procs.map(p => `
     <label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer">
       <input type="checkbox" value="${p.id}" data-laser="${p.is_laser || 0}"/>
-      ${p.nome}
+      ${escapeHtml(p.nome)}
     </label>
   `).join('');
 }
@@ -184,6 +201,10 @@ async function salvarCliente() {
   if (!nome) { toast('Nome é obrigatório', 'error'); return; }
   //if (!_v('cli-cpf').trim()) { toast('CPF é obrigatório', 'error'); return; }
   if (!_v('cli-telefone').trim()) { toast('Telefone é obrigatório', 'error'); return; }
+  if (_v('cli-nasc') && _v('cli-nasc') > hoje()) {
+    toast('A data de nascimento não pode estar no futuro.', 'error');
+    return;
+  }
 
   const dados = {
     id: _v('cli-id') || null,
@@ -233,8 +254,9 @@ async function salvarCliente() {
     observacoes: _v('cli-obs'),
   };
 
-  await window.api.clientes.salvar(dados);
-  const clienteId = dados.id || await _getLastInsertedClienteId();
+  const resultado = await window.api.clientes.salvar(dados);
+  const clienteId = dados.id || resultado?.id;
+  if (!clienteId) throw new Error('A API não retornou o identificador do cliente salvo.');
 
   const procIds = _getCheckedIds('#cli-proc-interesse-list');
   await window.api.clienteProc.salvarInteresse({ clienteId, procedimentoIds: procIds });
@@ -242,11 +264,6 @@ async function salvarCliente() {
   fecharModal('modal-cliente');
   toast('Ficha salva com sucesso!', 'success');
   renderClientes();
-}
-
-async function _getLastInsertedClienteId() {
-  const lista = await window.api.clientes.listar();
-  return lista[lista.length - 1]?.id;
 }
 
 // ── excluir ───────────────────────────────────────────────────

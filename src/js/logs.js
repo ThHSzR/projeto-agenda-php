@@ -4,7 +4,7 @@ async function renderLogs() {
 
   page.innerHTML = `
     <div class="page-header">
-      <h1>📝 Log de Atividades</h1>
+      <div><span class="page-eyebrow">Auditoria</span><h1>Log de atividades</h1></div>
       <div style="display:flex;gap:8px;align-items:center">
         <select id="log-limite" onchange="_carregarLogs()" style="padding:6px 10px;border-radius:var(--radius);border:1px solid var(--border)">
           <option value="50">Últimos 50</option>
@@ -12,7 +12,7 @@ async function renderLogs() {
           <option value="200">Últimos 200</option>
           <option value="500">Últimos 500</option>
         </select>
-        <button class="btn btn-secondary btn-sm" onclick="_carregarLogs()">🔄 Atualizar</button>
+        <button class="btn btn-secondary btn-sm" onclick="_carregarLogs()">${uiIcon('refresh')} Atualizar</button>
       </div>
     </div>
     <div class="card">
@@ -27,7 +27,7 @@ async function renderLogs() {
           </tr>
         </thead>
         <tbody id="tbody-logs">
-          <tr><td colspan="5"><div class="empty-state"><div class="icon">⏳</div><p>Carregando...</p></div></td></tr>
+          <tr><td colspan="5"><div class="empty-state"><p>Carregando atividades...</p></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -45,39 +45,28 @@ async function _carregarLogs() {
     const logs = await window.api.logs.listar(limite);
 
     if (!logs || logs.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="icon">📝</div><p>Nenhuma atividade registrada.</p></div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state modern-empty">${uiIcon('logs')}<p>Nenhuma atividade registrada.</p></div></td></tr>`;
       return;
     }
 
-    const ACAO_ICONS = {
-      criar: '🆕', editar: '✏️', excluir: '🗑️',
-      login: '🔑', logout: '🚪', status: '🔄',
-      concluir: '✅', cancelar: '❌',
-    };
-
     const ENTIDADE_LABELS = {
-      agendamento: '📅 Agendamento',
-      cliente: '👤 Cliente',
-      procedimento: '💆 Procedimento',
-      promocao: '🏷️ Promoção',
-      usuario: '👤 Usuário',
-      bloqueio: '🚫 Bloqueio',
+      agendamento: 'Agendamento', cliente: 'Cliente', procedimento: 'Procedimento',
+      promocao: 'Promoção', usuario: 'Usuário', bloqueio: 'Bloqueio',
     };
 
     tbody.innerHTML = logs.map(l => {
-      const icon = ACAO_ICONS[l.acao] || '📋';
       const entLabel = ENTIDADE_LABELS[l.entidade] || l.entidade || '—';
       const dt = l.criado_em ? fmtDataHora(l.criado_em) : '—';
       return `
         <tr>
           <td style="font-size:12px;color:var(--text-muted)">${dt}</td>
-          <td><strong style="font-size:12px">${l.usuario || 'Sistema'}</strong></td>
-          <td>${icon} <span style="font-size:12px">${l.acao || '—'}</span></td>
+          <td><strong style="font-size:12px">${escapeHtml(l.usuario || 'Sistema')}</strong></td>
+          <td><span class="log-action">${escapeHtml(l.acao || '—')}</span></td>
           <td style="font-size:12px">${entLabel}${l.entidade_id ? ` #${l.entidade_id}` : ''}</td>
-          <td style="font-size:11px;color:var(--text-muted);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(l.detalhes || '').replace(/"/g, '&quot;')}">${l.detalhes || '—'}</td>
+          <td style="font-size:11px;color:var(--text-muted);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(l.detalhes || '')}">${escapeHtml(l.detalhes || '—')}</td>
         </tr>`;
     }).join('');
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="icon">❌</div><p>Erro: ${e.message}</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><p>Erro: ${escapeHtml(e.message)}</p></div></td></tr>`;
   }
 }

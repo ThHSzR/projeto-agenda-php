@@ -6,4 +6,6 @@ define('DB_HOST',        'localhost');
 define('DB_NAME',        'nome_do_banco');
 define('DB_USER',        'usuario_do_banco');
 define('DB_PASS',        'sua_senha_aqui');
-define('SESSION_SECRET', 'gere-uma-chave-aleatoria-longa-aqui');
+define('APP_TIMEZONE',   'America/Sao_Paulo');
+define('SESSION_LIFETIME', 8 * 60 * 60);
+define('APP_ENV', 'development');

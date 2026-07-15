@@ -12,9 +12,9 @@ function _agendLimparCliente() {
   document.getElementById('agend-cliente').value       = '';
   document.getElementById('agend-cliente-input').value = '';
   document.getElementById('agend-cliente-clear').style.display = 'none';
-  document.getElementById('agend-whatsapp-btn').style.display  = 'none';
   _agendClienteTelefone = null;
   _agendClienteNome     = null;
+  _agendDefinirModoModal(document.getElementById('modal-agendamento').dataset.mode || 'create');
   _agendFecharDropdown();
 }
 
@@ -24,17 +24,20 @@ function _agendSelecionarCliente(id, nome, telefone) {
   document.getElementById('agend-cliente-clear').style.display = '';
   _agendClienteTelefone = telefone || null;
   _agendClienteNome     = nome;
-  const btn = document.getElementById('agend-whatsapp-btn');
-  btn.style.display = _agendClienteTelefone ? '' : 'none';
+  _agendDefinirModoModal(
+    document.getElementById('modal-agendamento').dataset.mode || 'create',
+    Boolean(_agendClienteTelefone)
+  );
   _agendFecharDropdown();
 }
 
 function _agendFiltrarClientes(query) {
   const dd = document.getElementById('agend-cliente-dropdown');
   const q  = (query || '').trim().toLowerCase();
-  const lista = q
-    ? _agendClientesCache.filter(c => c.nome.toLowerCase().includes(q))
+  const encontrados = q
+    ? _agendClientesCache.filter(c => `${c.nome} ${c.telefone || ''} ${c.celular || ''}`.toLowerCase().includes(q))
     : _agendClientesCache;
+  const lista = encontrados.slice(0, 20);
 
   if (!lista.length) {
     dd.innerHTML = `<div class="cliente-option" style="color:var(--text-muted);cursor:default">Nenhum cliente encontrado</div>`;
@@ -43,7 +46,7 @@ function _agendFiltrarClientes(query) {
   }
 
   dd.innerHTML = lista.map((c, i) => {
-    const nomeSafe = c.nome.replace(/</g, '&lt;');
+    const nomeSafe = escapeHtml(c.nome);
     let nomeHtml   = nomeSafe;
     if (q) {
       const idx = nomeSafe.toLowerCase().indexOf(q);
@@ -54,11 +57,13 @@ function _agendFiltrarClientes(query) {
           nomeSafe.slice(idx + q.length);
       }
     }
-    const tel = c.telefone ? `<span class="sub">${c.telefone}</span>` : '';
+    const tel = c.telefone ? `<span class="sub">${escapeHtml(c.telefone)}</span>` : '';
     return `<div class="cliente-option" data-idx="${i}"
-      onmousedown="_agendSelecionarCliente(${c.id}, '${c.nome.replace(/'/g, "\\'")}'.trim(), '${(c.telefone||'').replace(/'/g,"\\'")}')"
+      onmousedown="_agendSelecionarCliente(${c.id}, decodeURIComponent('${encodeURIComponent(c.nome)}').trim(), decodeURIComponent('${encodeURIComponent(c.telefone || '')}'))"
     >${nomeHtml}${tel}</div>`;
-  }).join('');
+  }).join('') + (encontrados.length > lista.length
+    ? `<div style="padding:10px 14px;color:var(--text-muted);font-size:12px">Mais ${encontrados.length - lista.length} resultado(s). Continue digitando para refinar.</div>`
+    : '');
 
   dd.classList.add('open');
   _agendSearchFocusIdx = -1;
@@ -94,12 +99,12 @@ document.addEventListener('click', e => {
 });
 
 async function renderAgendamentos() {
-  const lista = await window.api.agendamentos.listar({});
+  const lista = await window.api.agendamentos.listar({ data: hoje() });
   const page = document.getElementById('page-agendamentos');
 
   page.innerHTML = `
     <div class="page-header">
-      <h1>📋 Agendamentos</h1>
+      <div><span class="page-eyebrow">Operação</span><h1>Agendamentos</h1></div>
       <button class="btn btn-primary" onclick="abrirNovoAgendamento()">+ Novo Agendamento</button>
     </div>
     <div class="search-bar" style="align-items:center">
@@ -128,44 +133,45 @@ function calcularStatus(a) {
 }
 
 const STATUS_CONFIG = {
-  agendado:  { label: 'Agendado',   emoji: '🕐' },
-  atrasado:  { label: 'Atrasado',   emoji: '⚠️' },
-  concluido: { label: 'Concluído',  emoji: '✅' },
-  cancelado: { label: 'Cancelado',  emoji: '❌' },
+  agendado:  { label: 'Agendado' },
+  atrasado:  { label: 'Atrasado' },
+  concluido: { label: 'Concluído' },
+  cancelado: { label: 'Cancelado' },
 };
 
 function renderLinhasAgend(lista) {
   if (lista.length === 0)
-    return `<tr><td colspan="6"><div class="empty-state"><div class="icon">📋</div><p>Nenhum agendamento encontrado.</p></div></td></tr>`;
+    return `<tr><td colspan="6"><div class="empty-state"><p>Nenhum agendamento encontrado.</p></div></td></tr>`;
   return lista.map(a => {
+    const podeExcluir = Boolean(window._session?.is_admin || window._session?.cargo === 'gerente');
     const statusReal = calcularStatus(a);
     const cfg = STATUS_CONFIG[statusReal];
     const nomeProcedimento = a.procedimento_nome || '—';
     const opcoesHtml = Object.entries(STATUS_CONFIG).map(([val, c]) => `
       <div class="status-dropdown-item" onclick="alterarStatusAgend(${a.id},'${val}');fecharTodosDropdowns()">
-        <span class="status-dot dot-${val}"></span> ${c.emoji} ${c.label}
+        <span class="status-dot dot-${val}"></span> ${c.label}
       </div>`).join('');
     return `
     <tr>
       <td>${fmtDataHora(a.data_hora)}</td>
-      <td><strong>${a.cliente_nome}</strong></td>
-      <td>${nomeProcedimento}</td>
+      <td><strong>${escapeHtml(a.cliente_nome)}</strong></td>
+      <td>${escapeHtml(nomeProcedimento)}</td>
       <td>${fmtMoeda(a.valor_cobrado)}</td>
       <td>
         <div class="status-wrapper">
           <div class="status-pill status-pill-${statusReal}" onclick="toggleStatusDropdown(this)">
-            ${cfg.emoji} ${cfg.label}
+            <span class="status-dot dot-${statusReal}"></span> ${cfg.label}
           </div>
           <div class="status-dropdown">${opcoesHtml}</div>
         </div>
       </td>
       <td>
-        <button class="btn btn-whatsapp btn-sm"
-          onclick="abrirWhatsApp('${a.cliente_telefone}', '${a.data_hora}', '${a.cliente_nome}')"
-          title="Confirmar via WhatsApp">💬</button>
-        <button class="btn btn-secondary btn-sm" onclick="abrirProntuarioAgend(${a.id})" title="Abrir Prontuário">📋</button>
-        <button class="btn btn-info btn-sm" onclick="editarAgendamento(${a.id})">✏️</button>
-        <button class="btn btn-danger btn-sm" onclick="excluirAgend(${a.id})">🗑️</button>
+        <button class="btn btn-whatsapp btn-sm btn-icon"
+          onclick="abrirWhatsApp(decodeURIComponent('${encodeURIComponent(a.cliente_telefone || '')}'), '${a.data_hora}', decodeURIComponent('${encodeURIComponent(a.cliente_nome || '')}'), ${a.is_laser ? 'true' : 'false'})"
+          title="Confirmar via WhatsApp" aria-label="Confirmar via WhatsApp">${uiIcon('whatsapp')}</button>
+        <button class="btn btn-secondary btn-sm btn-icon" onclick="abrirProntuarioAgend(${a.id})" title="Abrir prontuário" aria-label="Abrir prontuário">${uiIcon('logs')}</button>
+        <button class="btn btn-info btn-sm btn-icon" onclick="editarAgendamento(${a.id})" title="Editar" aria-label="Editar">${uiIcon('edit')}</button>
+        ${podeExcluir ? `<button class="btn btn-danger btn-sm btn-icon" onclick="excluirAgend(${a.id})" title="Excluir" aria-label="Excluir">${uiIcon('trash')}</button>` : ''}
       </td>
     </tr>`;
   }).join('');
@@ -188,10 +194,7 @@ function fecharTodosDropdowns() {
 // ── Detecta se algum procedimento é depilação a laser ─────────────────────
 function _agendTemLaser(procs) {
   if (!procs || !procs.length) return false;
-  return procs.some(p => {
-    const nome = (p.procedimento_nome || p.nome || '').toLowerCase();
-    return nome.includes('laser');
-  });
+  return procs.some(p => Number(p.is_laser ?? p.isLaser ?? 0) === 1);
 }
 
 // ── Monta anotação automática a partir dos procs (modal) ──────────────────
@@ -231,6 +234,161 @@ function _agendMontarAnotacaoAuto(agendamento) {
 }
 
 // ── Abre prontuário ao concluir (dropdown da tabela) ──────────────────────
+const _agendAlertQueue = [];
+const _agendAlertIds = new Set();
+let _agendAlertCurrent = null;
+let _agendMonitorTimer = null;
+let _agendMonitorBusy = false;
+
+function iniciarMonitorAgendamentos() {
+  if (_agendMonitorTimer) return;
+  _agendVerificarVencidos();
+  _agendMonitorTimer = window.setInterval(_agendVerificarVencidos, 15000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') _agendVerificarVencidos();
+  });
+}
+
+async function _agendVerificarVencidos() {
+  if (_agendMonitorBusy || document.visibilityState === 'hidden') return;
+  _agendMonitorBusy = true;
+  try {
+    const resultado = await window.api.agendamentos.processarVencidos();
+    (resultado?.agendamentos || []).forEach(agendamento => {
+      const id = Number(agendamento.id);
+      if (_agendAlertIds.has(id)) return;
+      _agendAlertIds.add(id);
+      _agendAlertQueue.push(agendamento);
+    });
+    _agendMostrarProximoAlerta();
+
+    if (resultado?.atualizados > 0 && !_agendHaModalOperacionalAberto()) {
+      await _agendAtualizarPaginaVisivel();
+    }
+  } catch (error) {
+    console.warn('Monitor de agendamentos:', error.message);
+  } finally {
+    _agendMonitorBusy = false;
+  }
+}
+
+function _agendHaModalOperacionalAberto() {
+  return !!document.querySelector('.modal-overlay:not(.hidden):not(#modal-agendamento-alerta)');
+}
+
+async function _agendAtualizarPaginaVisivel() {
+  if (typeof paginaAtual === 'undefined') return;
+  if (paginaAtual === 'agendamentos') await renderAgendamentos();
+  if (paginaAtual === 'calendario') await renderCalendario();
+  if (paginaAtual === 'dashboard') await renderDashboard();
+}
+
+function _agendMostrarProximoAlerta() {
+  if (_agendAlertCurrent || !_agendAlertQueue.length) return;
+  _agendAlertCurrent = _agendAlertQueue.shift();
+
+  const agendamento = _agendAlertCurrent;
+  const restantes = _agendAlertQueue.length;
+  const queueEl = document.getElementById('agend-alert-queue');
+  queueEl.textContent = restantes ? `Mais ${restantes} na fila` : '';
+  queueEl.classList.toggle('hidden', !restantes);
+
+  document.getElementById('agend-alert-title').textContent = agendamento.cliente_nome || 'Atendimento agendado';
+  document.getElementById('agend-alert-procedure').textContent = agendamento.procedimento_nome || 'Procedimento não informado';
+  const timeEl = document.getElementById('agend-alert-time');
+  timeEl.textContent = fmtDataHora(agendamento.data_hora);
+  timeEl.dateTime = String(agendamento.data_hora || '').replace(' ', 'T');
+
+  document.getElementById('agend-alert-primary').classList.remove('hidden');
+  document.getElementById('agend-alert-whatsapp').classList.add('hidden');
+  document.querySelectorAll('.appointment-alert-action').forEach(button => { button.disabled = false; });
+  document.getElementById('modal-agendamento-alerta').classList.remove('hidden');
+  document.body.classList.add('modal-open');
+}
+
+async function _agendResponderAlerta(status) {
+  if (!_agendAlertCurrent) return;
+  const botoes = document.querySelectorAll('.appointment-alert-action');
+  botoes.forEach(button => { button.disabled = true; });
+
+  try {
+    if (status === 'atrasado') {
+      toast('Agendamento definido como atrasado.', 'success');
+      document.getElementById('agend-alert-primary').classList.add('hidden');
+      document.getElementById('agend-alert-whatsapp').classList.remove('hidden');
+      const temTelefone = !!String(_agendAlertCurrent.cliente_telefone || '').replace(/\D/g, '');
+      const sendButton = document.getElementById('agend-alert-send-whatsapp');
+      sendButton.disabled = !temTelefone;
+      document.getElementById('agend-alert-whatsapp-copy').textContent = temTelefone
+        ? `O atendimento de ${_agendAlertCurrent.cliente_nome} continuará como atrasado. Podemos abrir uma mensagem pronta.`
+        : 'Este cliente não possui telefone cadastrado. O atendimento continuará como atrasado.';
+      return;
+    }
+
+    await window.api.agendamentos.status({ id: _agendAlertCurrent.id, status });
+    if (status === 'concluido') {
+      await _agendGarantirProntuarioConcluido(_agendAlertCurrent.id, false);
+      toast('Atendimento concluído.', 'success');
+    } else {
+      toast('Agendamento cancelado por não comparecimento.', 'success');
+    }
+    await _agendFinalizarAlerta();
+  } catch (error) {
+    botoes.forEach(button => { button.disabled = false; });
+    toast(error.message || 'Não foi possível atualizar o agendamento.', 'error');
+  }
+}
+
+function _agendEnviarWhatsAppAlerta() {
+  if (!_agendAlertCurrent) return;
+  const telefone = String(_agendAlertCurrent.cliente_telefone || '').replace(/\D/g, '');
+  if (!telefone) {
+    toast('Cliente sem telefone cadastrado.', 'error');
+    return;
+  }
+  const primeiroNome = String(_agendAlertCurrent.cliente_nome || '').trim().split(' ')[0];
+  const texto = `Olá${primeiroNome ? `, ${primeiroNome}` : ''}! Notamos que o horário do seu atendimento chegou. Você está a caminho?`;
+  window.open(`https://wa.me/55${telefone}?text=${encodeURIComponent(texto)}`, '_blank');
+  _agendFinalizarAlerta();
+}
+
+async function _agendFinalizarAlerta() {
+  document.getElementById('modal-agendamento-alerta').classList.add('hidden');
+  _agendAlertCurrent = null;
+  document.body.classList.toggle('modal-open', !!document.querySelector('.modal-overlay:not(.hidden)'));
+  await _agendAtualizarPaginaVisivel();
+  _agendMostrarProximoAlerta();
+}
+
+async function _agendGarantirProntuarioConcluido(id, abrirEdicao = true) {
+  const agend = await window.api.agendamentos.buscar(id);
+  const anotacaoAuto = _agendMontarAnotacaoAuto(agend);
+  const temLaser = _agendTemLaser(agend.procs || []);
+  const entradasExistentes = await window.api.prontuario.listar(agend.cliente_id);
+  const jaExiste = entradasExistentes.some(
+    entrada => entrada.agendamento_id == id && entrada.tipo === 'atendimento'
+  );
+
+  if (!jaExiste) {
+    try {
+      await window.api.prontuario.criar({
+        cliente_id: agend.cliente_id,
+        agendamento_id: id,
+        tipo: 'atendimento',
+        fitzpatrick: 0,
+        anotacao: null,
+      });
+    } catch (error) {
+      if (error.status !== 409) throw error;
+    }
+  }
+
+  if (abrirEdicao) {
+    await abrirProntuario(agend.cliente_id, agend.cliente_nome);
+    prontAbrirEdicaoAtendimento(id, anotacaoAuto, temLaser);
+  }
+}
+
 async function alterarStatusAgend(id, status) {
   await window.api.agendamentos.status({ id, status });
   toast(`Status atualizado para "${status}".`, 'success');
@@ -320,12 +478,12 @@ function _agendRecalcular() {
     campoValor.readOnly = true;
     campoValor.style.background = 'var(--surface-2)';
     campoValor.style.cursor     = 'not-allowed';
-    document.getElementById('agend-valor-label').textContent = 'Valor cobrado (R$) 🔒';
+    document.getElementById('agend-valor-label').textContent = 'Valor cobrado (R$) — calculado automaticamente';
   } else {
     campoValor.readOnly = false;
     campoValor.style.background = '';
     campoValor.style.cursor     = '';
-    document.getElementById('agend-valor-label').textContent = 'Valor cobrado (R$) ✏️';
+    document.getElementById('agend-valor-label').textContent = 'Valor cobrado (R$) — editável';
   }
 }
 
@@ -375,7 +533,7 @@ async function _agendRecalcularPromocao() {
   if (calc.promocao_aplicada) {
     html += `
       <div style="background:#f0fdf4;border:1px solid var(--success);border-radius:var(--radius);padding:10px 14px;margin-top:8px;font-size:13px">
-        🏷️ <strong>${calc.promocao_aplicada.nome}</strong><br>
+        ${uiIcon('promos')} <strong>${escapeHtml(calc.promocao_aplicada.nome)}</strong><br>
         <span style="color:var(--text-muted)">
           Subtotal do combo: ${fmtMoeda(calc.promocao_aplicada.subtotal_casado)} →
           desconto: <strong style="color:var(--success)">−${fmtMoeda(calc.promocao_aplicada.desconto)}</strong>
@@ -385,7 +543,7 @@ async function _agendRecalcularPromocao() {
   if (calc.aviso_outra_promocao) {
     html += `
       <div style="background:#fff8e1;border:1px solid var(--warning);border-radius:var(--radius);padding:10px 14px;margin-top:6px;font-size:13px">
-        ${calc.aviso_outra_promocao}
+        ${escapeHtml(calc.aviso_outra_promocao)}
       </div>`;
   }
   promoBox.innerHTML = html;
@@ -418,13 +576,13 @@ async function _agendAdicionarProc(procIdSel = null, varianteIdSel = null) {
     <select id="agend-proc-sel-${idx}" style="flex:2"
       onchange="_agendOnProcChange(${idx})">
       ${placeholderOpt}
-      ${procs.map(p => `<option value="${p.id}" data-valor="${p.valor}" data-duracao="${p.duracao_min}" data-tem-variantes="${p.tem_variantes}"
-        ${p.id === procIdSel ? 'selected' : ''}>${p.nome}</option>`).join('')}
+      ${procs.map(p => `<option value="${p.id}" data-valor="${p.valor}" data-duracao="${p.duracao_min}" data-tem-variantes="${p.tem_variantes}" data-is-laser="${p.is_laser || 0}"
+        ${p.id === procIdSel ? 'selected' : ''}>${escapeHtml(p.nome)}</option>`).join('')}
     </select>
     <select id="agend-var-sel-${idx}" style="flex:2;display:none"
       onchange="_agendOnVarChange(${idx})"></select>
     <span id="agend-proc-info-${idx}" style="flex:1;font-size:12px;color:var(--text-muted)"></span>
-    <button class="btn btn-danger btn-sm" onclick="_agendRemoverProc(${idx})">✕</button>
+    <button class="btn btn-danger btn-sm btn-icon" onclick="_agendRemoverProc(${idx})" title="Remover procedimento" aria-label="Remover procedimento">${uiIcon('trash')}</button>
   `;
 
   document.getElementById('agend-procs-lista').appendChild(linha);
@@ -441,13 +599,14 @@ async function _agendOnProcChange(idx, varianteIdSel = null) {
   if (!opt || !opt.value) return;
   const procId = parseInt(sel.value);
   const temVar  = opt.dataset.temVariantes === '1';
+  const isLaser = opt.dataset.isLaser === '1';
   const varSel  = document.getElementById(`agend-var-sel-${idx}`);
 
   if (temVar) {
     const vars = await window.api.variantes.listar(procId);
     varSel.innerHTML = vars.map(v =>
       `<option value="${v.id}" data-valor="${v.valor}" data-duracao="${v.duracao_min}"
-        ${v.id === varianteIdSel ? 'selected' : ''}>${v.nome} — ${fmtMoeda(v.valor)}</option>`
+        ${v.id === varianteIdSel ? 'selected' : ''}>${escapeHtml(v.nome)} — ${fmtMoeda(v.valor)}</option>`
     ).join('');
     varSel.style.display = '';
     _agendOnVarChange(idx);
@@ -456,7 +615,7 @@ async function _agendOnProcChange(idx, varianteIdSel = null) {
     varSel.innerHTML     = '';
     const valor   = parseFloat(opt.dataset.valor)  || 0;
     const duracao = parseInt(opt.dataset.duracao)   || 0;
-    _agendProcsModal[idx] = { procId, varianteId: null, valor, duracao, nome: opt.text, varianteNome: null };
+    _agendProcsModal[idx] = { procId, varianteId: null, valor, duracao, nome: opt.text, varianteNome: null, isLaser };
     document.getElementById(`agend-proc-info-${idx}`).textContent = `${duracao}min · ${fmtMoeda(valor)}`;
     await _agendRecalcularPromocao();
   }
@@ -468,11 +627,13 @@ async function _agendOnVarChange(idx) {
   const vOpt    = varSel.options[varSel.selectedIndex];
   const procId     = parseInt(procSel.value);
   const varianteId = parseInt(varSel.value);
+  const isLaser    = procSel.options[procSel.selectedIndex]?.dataset.isLaser === '1';
   const valor   = parseFloat(vOpt?.dataset.valor)  || 0;
   const duracao = parseInt(vOpt?.dataset.duracao)   || 0;
   _agendProcsModal[idx] = {
     procId, varianteId, valor, duracao,
     nome: procSel.options[procSel.selectedIndex]?.text || '',
+    isLaser,
     varianteNome: vOpt?.text?.split('—')[0]?.trim() || null,
   };
   document.getElementById(`agend-proc-info-${idx}`).textContent = `${duracao}min · ${fmtMoeda(valor)}`;
@@ -487,7 +648,12 @@ async function _agendRemoverProc(idx) {
 }
 
 function _agendWhatsApp() {
-  abrirWhatsApp(_agendClienteTelefone, _agendDataHora, _agendClienteNome);
+  abrirWhatsApp(
+    _agendClienteTelefone,
+    _agendDataHora,
+    _agendClienteNome,
+    _agendProcsModal.filter(Boolean).some(proc => proc.isLaser)
+  );
 }
 
 function _agendResetPromo() {
@@ -505,6 +671,25 @@ function _agendResetPromo() {
   }
 }
 
+function _agendProximoHorario() {
+  const date = new Date();
+  date.setSeconds(0, 0);
+  date.setMinutes(Math.ceil(date.getMinutes() / 15) * 15);
+  if (date.getHours() < 7) date.setHours(9, 0, 0, 0);
+  if (date.getHours() >= 21) {
+    date.setDate(date.getDate() + 1);
+    date.setHours(9, 0, 0, 0);
+  }
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function _agendDefinirModoModal(mode, hasWhatsApp = false) {
+  const modal = document.getElementById('modal-agendamento');
+  const btnWhatsApp = document.getElementById('agend-whatsapp-btn');
+  modal.dataset.mode = mode;
+  btnWhatsApp.classList.toggle('hidden', mode !== 'edit' || !hasWhatsApp);
+}
+
 async function abrirNovoAgendamento(dataHoraPre) {
   _agendClientesCache = await window.api.clientes.listar();
   if (_agendClientesCache.length === 0) { toast('Cadastre um cliente primeiro.', 'error'); return; }
@@ -514,9 +699,14 @@ async function abrirNovoAgendamento(dataHoraPre) {
   document.getElementById('agend-status').value               = 'agendado';
   document.getElementById('agend-obs').value                  = '';
   document.getElementById('agend-valor').value                = '';
-  document.getElementById('agend-data-hora').value            = dataHoraPre || '';
+  document.getElementById('agend-data-hora').value            = dataHoraPre || _agendProximoHorario();
   document.getElementById('agend-procs-lista').innerHTML      = '';
-  document.getElementById('agend-whatsapp-btn').style.display = 'none';
+  _agendDefinirModoModal('create');
+  const conflictAlert = document.getElementById('agend-conflict-alert');
+  if (conflictAlert) {
+    conflictAlert.classList.add('hidden');
+    conflictAlert.textContent = '';
+  }
 
   document.getElementById('agend-cliente').value               = '';
   document.getElementById('agend-cliente-input').value         = '';
@@ -547,6 +737,11 @@ async function editarAgendamento(id) {
   document.getElementById('agend-obs').value       = a.observacoes || '';
   document.getElementById('agend-valor').value     = a.valor_cobrado || '';
   document.getElementById('agend-procs-lista').innerHTML = '';
+  const conflictAlert = document.getElementById('agend-conflict-alert');
+  if (conflictAlert) {
+    conflictAlert.classList.add('hidden');
+    conflictAlert.textContent = '';
+  }
 
   document.getElementById('agend-cliente').value               = a.cliente_id;
   document.getElementById('agend-cliente-input').value         = a.cliente_nome;
@@ -557,8 +752,7 @@ async function editarAgendamento(id) {
   _agendClienteNome     = a.cliente_nome;
   _agendDataHora        = a.data_hora;
 
-  const btnWa = document.getElementById('agend-whatsapp-btn');
-  btnWa.style.display = _agendClienteTelefone ? '' : 'none';
+  _agendDefinirModoModal('edit', Boolean(_agendClienteTelefone));
 
   _agendProcsModal = [];
   _agendResetPromo();
@@ -596,6 +790,11 @@ async function editarAgendamento(id) {
 }
 
 async function salvarAgendamento() {
+  const conflictAlert = document.getElementById('agend-conflict-alert');
+  if (conflictAlert) {
+    conflictAlert.classList.add('hidden');
+    conflictAlert.textContent = '';
+  }
   const clienteId  = document.getElementById('agend-cliente').value;
   const dataHora   = document.getElementById('agend-data-hora').value;
   const statusNovo = document.getElementById('agend-status').value;
@@ -607,7 +806,7 @@ async function salvarAgendamento() {
   await _agendRecalcularPromocao();
 
   const clienteNomeAtual = _agendClienteNome;
-  const temLaser         = procsValidos.some(p => (p.nome || '').toLowerCase().includes('laser'));
+  const temLaser         = procsValidos.some(p => p.isLaser);
   const anotacaoAuto     = statusNovo === 'concluido' ? _agendMontarAnotacaoAutoModal() : null;
 
   try {
@@ -653,8 +852,18 @@ async function salvarAgendamento() {
     const paginaAtiva = document.querySelector('.page:not(.hidden)');
     if (paginaAtiva?.id === 'page-agendamentos') renderAgendamentos();
     if (paginaAtiva?.id === 'page-calendario')   renderCalendario();
+    if (paginaAtiva?.id === 'page-dashboard')    renderDashboard();
   } catch (e) {
-    toast('Erro ao salvar: ' + e.message, 'error');
+    if (e.code === 'HORARIO_INDISPONIVEL' && conflictAlert) {
+      const detail = e.details;
+      const interval = detail?.inicio && detail?.fim
+        ? ` Intervalo indisponível: ${fmtDataHora(detail.inicio)} até ${fmtHora(detail.fim)}.`
+        : '';
+      conflictAlert.textContent = e.message + interval + ' Escolha outra data ou horário.';
+      conflictAlert.classList.remove('hidden');
+      conflictAlert.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    toast(e.message, 'error');
     console.error('Erro ao salvar agendamento:', e);
   }
 }

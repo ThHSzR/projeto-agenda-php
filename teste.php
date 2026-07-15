@@ -1,1 +1,0 @@
-<?php echo "htaccess OK — PHP direto funcionando";

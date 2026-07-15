@@ -1,12 +1,12 @@
 async function renderFinanceiro() {
   const hoje = new Date();
-  const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10);
-  const ultimoDia  = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const primeiroDia = dataLocal(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+  const ultimoDia  = dataLocal(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0));
 
   const page = document.getElementById('page-financeiro');
   page.innerHTML = `
     <div class="page-header">
-      <h1>💰 Financeiro</h1>
+      <div><span class="page-eyebrow">Resultados</span><h1>Financeiro</h1></div>
     </div>
     <div class="search-bar" style="align-items:center;gap:12px;flex-wrap:wrap">
       <label style="font-size:12px;color:var(--text-muted)">Período:</label>
@@ -24,7 +24,7 @@ async function renderFinanceiro() {
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border)">
         <h3 style="font-size:14px;font-weight:600">Detalhamento</h3>
-        <button class="btn btn-secondary btn-sm" onclick="exportarFinanceiro()">⬇️ Exportar CSV</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportarFinanceiro()">Exportar CSV</button>
       </div>
       <table>
         <thead>
@@ -67,10 +67,10 @@ async function atualizarFinanceiro() {
       const cancelados = parseInt(resumo?.cancelados   || 0);
 
       kpisEl.innerHTML = `
-        ${kpiCard('✅ Recebido',       fmtMoeda(recebido),       'var(--success)')}
-        ${kpiCard('🕐 A Receber',      fmtMoeda(aReceber),       'var(--rosa-botao)')}
-        ${kpiCard('📋 Agendamentos',   totalAg,                  'var(--info)')}
-        ${kpiCard('❌ Cancelamentos',  cancelados,               'var(--danger)')}
+        ${kpiCard('Recebido',       fmtMoeda(recebido),       'var(--success)')}
+        ${kpiCard('A receber',      fmtMoeda(aReceber),       'var(--rosa-botao)')}
+        ${kpiCard('Agendamentos',   totalAg,                  'var(--info)')}
+        ${kpiCard('Cancelamentos',  cancelados,               'var(--danger)')}
       `;
     }
 
@@ -81,7 +81,7 @@ async function atualizarFinanceiro() {
     if (!detalhado || detalhado.length === 0) {
       tbody.innerHTML = `<tr><td colspan="6">
         <div class="empty-state">
-          <div class="icon">💰</div>
+          ${uiIcon('finance')}
           <p>Nenhum agendamento no período.</p>
         </div>
       </td></tr>`;
@@ -89,23 +89,27 @@ async function atualizarFinanceiro() {
     }
 
     const STATUS_LABEL = {
-      agendado:  '🕐 Agendado',
-      concluido: '✅ Concluído',
-      cancelado: '❌ Cancelado',
+      agendado:  'Agendado',
+      concluido: 'Concluído',
+      cancelado: 'Cancelado',
     };
 
     tbody.innerHTML = detalhado.map(ag => {
-      const promoCell = ag.promocao
+      const promocao = ag.promocao || (ag.promo_nome ? {
+        promocao_nome: ag.promo_nome,
+        desconto_aplicado: ag.promo_desconto,
+      } : null);
+      const promoCell = promocao
         ? `<span style="font-size:11px;background:#e8f5e9;color:var(--success);padding:2px 6px;border-radius:20px">
-             🏷️ ${ag.promocao.promocao_nome} (−${fmtMoeda(ag.promocao.desconto_aplicado)})
+             ${escapeHtml(promocao.promocao_nome)} (−${fmtMoeda(promocao.desconto_aplicado)})
            </span>`
         : `<span style="color:var(--text-muted);font-size:11px">—</span>`;
 
       return `
       <tr>
         <td>${fmtDataHora(ag.data_hora)}</td>
-        <td>${ag.cliente_nome}</td>
-        <td>${ag.procedimento_nome || '—'}</td>
+        <td>${escapeHtml(ag.cliente_nome)}</td>
+        <td>${escapeHtml(ag.procedimento_nome || '—')}</td>
         <td>${promoCell}</td>
         <td><span class="status-pill status-pill-${ag.status}" style="font-size:11px">${STATUS_LABEL[ag.status] ?? ag.status}</span></td>
         <td><strong>${fmtMoeda(ag.valor_cobrado)}</strong></td>
@@ -127,8 +131,8 @@ function kpiCard(titulo, valor, cor) {
 
 function finMesAtual() {
   const h = new Date();
-  document.getElementById('fin-inicio').value = new Date(h.getFullYear(), h.getMonth(), 1).toISOString().slice(0, 10);
-  document.getElementById('fin-fim').value    = new Date(h.getFullYear(), h.getMonth() + 1, 0).toISOString().slice(0, 10);
+  document.getElementById('fin-inicio').value = dataLocal(new Date(h.getFullYear(), h.getMonth(), 1));
+  document.getElementById('fin-fim').value    = dataLocal(new Date(h.getFullYear(), h.getMonth() + 1, 0));
   atualizarFinanceiro();
 }
 
@@ -157,11 +161,16 @@ async function exportarFinanceiro() {
         ag.data_hora,
         ag.cliente_nome,
         ag.procedimento_nome || '',
-        ag.promocao?.promocao_nome || '',
-        ag.promocao?.desconto_aplicado ?? '',
+        ag.promocao?.promocao_nome || ag.promo_nome || '',
+        ag.promocao?.desconto_aplicado ?? ag.promo_desconto ?? '',
         ag.status,
         String(ag.valor_cobrado ?? '').replace('.', ','),
-      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))
+      ].map(v => {
+        let value = String(v);
+        // Impede execucao de formulas ao abrir o CSV em planilhas.
+        if (/^[=+\-@\t\r]/.test(value)) value = `'${value}`;
+        return `"${value.replace(/"/g, '""')}"`;
+      }).join(';'))
     ];
 
     const blob = new Blob(['\uFEFF' + linhas.join('\n')], { type: 'text/csv;charset=utf-8;' });

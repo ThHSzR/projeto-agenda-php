@@ -8,7 +8,7 @@ async function renderPromocoes() {
   const page = document.getElementById('page-promocoes');
   page.innerHTML = `
     <div class="page-header">
-      <h1>🏷️ Promoções</h1>
+      <div><span class="page-eyebrow">Campanhas</span><h1>Promoções</h1></div>
       <button class="btn btn-primary" onclick="abrirNovaPromocao()">+ Nova Promoção</button>
     </div>
     <div class="card">
@@ -43,7 +43,7 @@ function _renderTbodyPromocoes() {
   if (!_promoLista || _promoLista.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5">
       <div class="empty-state">
-        <div class="icon">🏷️</div>
+        ${uiIcon('promos')}
         <p>Nenhuma promoção cadastrada.</p>
       </div>
     </td></tr>`;
@@ -52,20 +52,20 @@ function _renderTbodyPromocoes() {
 
   tbody.innerHTML = _promoLista.map(p => {
     const ativa    = p.ativa
-      ? '<span style="color:var(--success);font-weight:600">✅ Ativa</span>'
+      ? '<span class="badge badge-concluido">Ativa</span>'
       : '<span style="color:var(--text-muted)">⏸ Inativa</span>';
     const vigencia = [p.data_inicio, p.data_fim].filter(Boolean).join(' → ') || '—';
     const desconto = _fmtTipoDesconto(p.tipo_desconto, p.valor_desconto);
 
     return `
     <tr>
-      <td><strong>${p.nome}</strong></td>
+      <td><strong>${escapeHtml(p.nome)}</strong></td>
       <td>${desconto}</td>
       <td style="font-size:12px;color:var(--text-muted)">${vigencia}</td>
       <td>${ativa}</td>
       <td>
-        <button class="btn btn-info btn-sm"   onclick="editarPromocao(${p.id})">✏️</button>
-        <button class="btn btn-danger btn-sm" onclick="excluirPromocao(${p.id})">🗑️</button>
+        <button class="btn btn-info btn-sm btn-icon" onclick="editarPromocao(${p.id})" title="Editar" aria-label="Editar">${uiIcon('edit')}</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="excluirPromocao(${p.id})" title="Excluir" aria-label="Excluir">${uiIcon('trash')}</button>
       </td>
     </tr>`;
   }).join('');
@@ -88,7 +88,7 @@ async function _promoCarregarProcsNoSelect() {
   if (!sel) return;
   sel.innerHTML = '<option value="">— Selecione —</option>' +
     _promoProcsCached.map(p =>
-      `<option value="${p.id}" data-tem-variantes="${p.tem_variantes}">${p.nome}</option>`
+      `<option value="${p.id}" data-tem-variantes="${p.tem_variantes}">${escapeHtml(p.nome)}</option>`
     ).join('');
 
   const selVar = document.getElementById('promo-regra-var');
@@ -237,10 +237,10 @@ function _renderTbodyRegras() {
 
   tbody.innerHTML = _promoRegras.map((r, i) => `
     <tr>
-      <td style="font-size:13px">${r._proc_nome || '—'}</td>
-      <td style="font-size:13px;color:var(--text-muted)">${r._var_nome || '<em>Qualquer variante</em>'}</td>
+      <td style="font-size:13px">${escapeHtml(r._proc_nome || '—')}</td>
+      <td style="font-size:13px;color:var(--text-muted)">${r._var_nome ? escapeHtml(r._var_nome) : '<em>Qualquer variante</em>'}</td>
       <td style="text-align:center;font-size:13px">${r.quantidade ?? 1}</td>
-      <td><button class="btn btn-danger btn-sm" onclick="_promoRemoverRegra(${i})">✕</button></td>
+      <td><button class="btn btn-danger btn-sm btn-icon" onclick="_promoRemoverRegra(${i})" title="Remover regra" aria-label="Remover regra">${uiIcon('trash')}</button></td>
     </tr>`).join('');
 }
 
@@ -285,6 +285,17 @@ function _promoRemoverRegra(idx) {
 async function salvarPromocao() {
   const nome = document.getElementById('promo-nome').value.trim();
   if (!nome) { toast('Informe o nome da promoção.', 'error'); return; }
+  const valorDesconto = parseFloat(document.getElementById('promo-valor-desconto').value);
+  if (!Number.isFinite(valorDesconto) || valorDesconto <= 0) {
+    toast('Informe um valor de desconto maior que zero.', 'error');
+    return;
+  }
+  const dataInicio = document.getElementById('promo-data-inicio').value;
+  const dataFim = document.getElementById('promo-data-fim').value;
+  if (dataInicio && dataFim && dataFim < dataInicio) {
+    toast('A data final da promoção deve ser igual ou posterior à inicial.', 'error');
+    return;
+  }
 
   const diasChecados = [];
   document.querySelectorAll('#promo-dias-semana input[type=checkbox]:checked').forEach(cb => {
@@ -295,12 +306,12 @@ async function salvarPromocao() {
     id:             document.getElementById('promo-id').value || null,
     nome,
     tipo_desconto:  document.getElementById('promo-tipo-desconto').value,
-    valor_desconto: parseFloat(document.getElementById('promo-valor-desconto').value) || 0,
+    valor_desconto: valorDesconto,
     modo_itens:     document.getElementById('promo-modo-itens').value,
     quantidade_min: parseInt(document.getElementById('promo-qtd-min').value)    || null,
     ativa:          document.getElementById('promo-ativa').checked ? 1 : 0,
-    data_inicio:    document.getElementById('promo-data-inicio').value || null,
-    data_fim:       document.getElementById('promo-data-fim').value    || null,
+    data_inicio:    dataInicio || null,
+    data_fim:       dataFim || null,
     dias_semana:    JSON.stringify(diasChecados),
     limite_usos:    parseInt(document.getElementById('promo-limite-usos').value) || null,
     regras:         _promoRegras.map(({ _proc_nome, _var_nome, ...r }) => r),

@@ -1,6 +1,62 @@
 let calView = 'dia';
 let calDate = new Date();
 
+function _calDateTimeLocal(value) {
+  return new Date(String(value).replace(' ', 'T'));
+}
+
+function _calTime(date) {
+  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function _calDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function _calVisibleHours(appointments, blocks) {
+  let firstHour = 7;
+  let lastHour = 21;
+  appointments.forEach(item => {
+    const hour = Number(String(item.data_hora).slice(11, 13));
+    if (Number.isInteger(hour)) {
+      firstHour = Math.min(firstHour, hour);
+      lastHour = Math.max(lastHour, hour);
+    }
+  });
+  blocks.forEach(block => {
+    firstHour = Math.min(firstHour, block.occurrenceStart.getHours());
+    const endHour = block.occurrenceEnd.getHours() + (block.occurrenceEnd.getMinutes() > 0 ? 1 : 0);
+    lastHour = Math.max(lastHour, Math.min(23, endHour));
+  });
+  return { firstHour: Math.max(0, firstHour), lastHour: Math.min(23, lastHour) };
+}
+
+function _calBlocksOnDate(blocks, dateStr) {
+  const target = new Date(`${dateStr}T12:00:00`);
+  return blocks.flatMap(block => {
+    const originalStart = _calDateTimeLocal(block.data_hora_inicio);
+    const originalEnd = _calDateTimeLocal(block.data_hora_fim);
+    if (Number.isNaN(originalStart.getTime()) || Number.isNaN(originalEnd.getTime())) return [];
+
+    if (!Number(block.recorrente)) {
+      const dayStart = new Date(`${dateStr}T00:00:00`);
+      const dayEnd = new Date(`${dateStr}T23:59:59`);
+      return originalStart <= dayEnd && originalEnd >= dayStart ? [{ ...block, occurrenceStart: originalStart, occurrenceEnd: originalEnd }] : [];
+    }
+
+    if (originalStart.getDay() !== target.getDay()) return [];
+    const duration = originalEnd.getTime() - originalStart.getTime();
+    const occurrenceStart = new Date(target);
+    occurrenceStart.setHours(originalStart.getHours(), originalStart.getMinutes(), 0, 0);
+    if (occurrenceStart < originalStart) return [];
+    return [{ ...block, occurrenceStart, occurrenceEnd: new Date(occurrenceStart.getTime() + duration) }];
+  });
+}
+
+function _calPrefill(dateStr, hour = 9) {
+  abrirNovoAgendamento(`${dateStr}T${String(hour).padStart(2, '0')}:00`);
+}
+
 async function renderCalendario() {
   const container = document.getElementById('page-calendario');
 
@@ -8,7 +64,7 @@ async function renderCalendario() {
   const mesNome = calDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   container.innerHTML = `
     <div class="page-header">
-      <h1>📅 Calendário</h1>
+      <div><span class="page-eyebrow">Agenda</span><h1>Calendário</h1></div>
       <button class="btn btn-primary" onclick="abrirNovoAgendamento()">+ Novo Agendamento</button>
     </div>
     <div id="calendario-container">
@@ -42,6 +98,7 @@ async function renderMes() {
   const inicio = `${ano}-${String(mes+1).padStart(2,'0')}-01`;
   const fim    = `${ano}-${String(mes+1).padStart(2,'0')}-31`;
   const ags    = await window.api.agendamentos.listar({ data_inicio: inicio + ' 00:00:00', data_fim: fim + ' 23:59:59' });
+  const blocks = await window.api.bloqueios.listar({ data_inicio: inicio + ' 00:00:00', data_fim: fim + ' 23:59:59' });
 
   const agMap = {};
   ags.forEach(a => {
@@ -69,12 +126,16 @@ async function renderMes() {
     const dataStr = `${ano}-${String(mes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isHoje  = dataStr === hojeStr;
     const eventos = agMap[dataStr] || [];
+    const dayBlocks = _calBlocksOnDate(blocks, dataStr);
+    const blockHtml = dayBlocks.slice(0, 2).map(b =>
+      `<div class="cal-blocked" title="${escapeHtml(b.motivo || b.titulo || 'Horário bloqueado')}">${_calTime(b.occurrenceStart)} ${escapeHtml(b.titulo || 'Bloqueado')}</div>`
+    ).join('');
     const evHtml  = eventos.slice(0,3).map(a =>
-      `<div class="cal-evento ${a.status}" title="${a.cliente_nome} - ${a.procedimento_nome}" onclick="event.stopPropagation();editarAgendamento(${a.id})">${fmtHora(a.data_hora)} ${a.cliente_nome}</div>`
+      `<div class="cal-evento ${a.status}" title="${escapeHtml(a.cliente_nome)} - ${escapeHtml(a.procedimento_nome)}" onclick="event.stopPropagation();editarAgendamento(${a.id})">${fmtHora(a.data_hora)} ${escapeHtml(a.cliente_nome)}</div>`
     ).join('') + (eventos.length > 3 ? `<div style="font-size:10px;color:var(--text-muted)">+${eventos.length-3} mais</div>` : '');
 
     html += `<div class="cal-day${isHoje?' hoje':''}" onclick="calIrDia('${dataStr}')">
-      <div class="dia-num">${d}</div>${evHtml}</div>`;
+      <div class="dia-num">${d}</div>${blockHtml}${evHtml}</div>`;
   }
 
   // Completar última semana
@@ -97,9 +158,13 @@ async function renderSemana() {
     diasSemana.push(d);
   }
 
-  const inicio = diasSemana[0].toISOString().slice(0,10);
-  const fim    = diasSemana[6].toISOString().slice(0,10);
+  const inicio = _calDateKey(diasSemana[0]);
+  const fim    = _calDateKey(diasSemana[6]);
   const ags    = await window.api.agendamentos.listar({
+    data_inicio: inicio + ' 00:00:00',
+    data_fim: fim + ' 23:59:59'
+  });
+  const blocks = await window.api.bloqueios.listar({
     data_inicio: inicio + ' 00:00:00',
     data_fim: fim + ' 23:59:59'
   });
@@ -115,6 +180,8 @@ async function renderSemana() {
 
   const dias = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
   const hojeStr = hoje();
+  const weekBlocks = diasSemana.flatMap(date => _calBlocksOnDate(blocks, _calDateKey(date)));
+  const { firstHour, lastHour } = _calVisibleHours(ags, weekBlocks);
 
   let html = `
     <div class="cal-week-wrap">
@@ -123,7 +190,7 @@ async function renderSemana() {
           <tr>
             <th class="cal-week-th-hora"></th>
             ${diasSemana.map((d, i) => {
-              const ds = d.toISOString().slice(0,10);
+              const ds = _calDateKey(d);
               const isHoje = ds === hojeStr;
               return `<th class="cal-week-th-dia${isHoje ? ' hoje' : ''}">
                 <span>${dias[i]}</span>
@@ -133,18 +200,20 @@ async function renderSemana() {
           </tr>
         </thead>
         <tbody>
-          ${Array.from({ length: 15 }, (_, idx) => {
-            const h = idx + 7;
+          ${Array.from({ length: lastHour - firstHour + 1 }, (_, idx) => {
+            const h = idx + firstHour;
             return `
               <tr>
                 <td class="cal-week-hora">${String(h).padStart(2,'0')}:00</td>
                 ${diasSemana.map(d => {
-                  const ds = d.toISOString().slice(0,10);
+                  const ds = _calDateKey(d);
                   const eventos = (agMap[ds] && agMap[ds][h]) || [];
-                  return `<td class="cal-week-cell">
+                  const blocked = _calBlocksOnDate(blocks, ds).filter(b => b.occurrenceStart.getHours() === h);
+                  return `<td class="cal-week-cell" onclick="_calPrefill('${ds}', ${h})">
+                    ${blocked.map(b => `<div class="cal-blocked" onclick="event.stopPropagation()">${_calTime(b.occurrenceStart)} ${escapeHtml(b.titulo || 'Bloqueado')}</div>`).join('')}
                     ${eventos.map(a => `
-                      <div class="cal-agend-block" onclick="editarAgendamento(${a.id})">
-                        ${fmtHora(a.data_hora)} ${a.cliente_nome}
+                      <div class="cal-agend-block" onclick="event.stopPropagation();editarAgendamento(${a.id})">
+                        ${fmtHora(a.data_hora)} ${escapeHtml(a.cliente_nome)}
                       </div>
                     `).join('')}
                   </td>`;
@@ -161,23 +230,29 @@ async function renderSemana() {
 
 // ── DIA ───────────────────────────────────────────────────────
 async function renderDia() {
-  const dataStr = calDate.toISOString().slice(0,10);
+  const dataStr = _calDateKey(calDate);
   const ags     = await window.api.agendamentos.listar({ data: dataStr });
+  const blocks  = await window.api.bloqueios.listar({ data_inicio: dataStr + ' 00:00:00', data_fim: dataStr + ' 23:59:59' });
+  const dayBlocks = _calBlocksOnDate(blocks, dataStr);
+  const { firstHour, lastHour } = _calVisibleHours(ags, dayBlocks);
 
-  let html = `<div class="cal-week">
+  let html = `<div class="cal-day-wrap">
     <div class="cal-week-header" style="grid-template-columns: 52px 1fr">
       <div></div>
       <div style="text-align:center">${calDate.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}</div>
     </div>
-    <div style="display:block;overflow-y:auto;max-height:600px">`;
+    <div class="cal-day-scroll">`;
 
-  for (let h = 7; h <= 21; h++) {
+  for (let h = firstHour; h <= lastHour; h++) {
     const eventos = ags.filter(a => parseInt(a.data_hora.slice(11,13)) === h);
-    html += `<div style="display:grid;grid-template-columns:52px 1fr;border-bottom:1px solid var(--border);min-height:52px">
-      <div class="cal-hour-label" style="padding-top:6px">${String(h).padStart(2,'0')}:00</div>
-      <div style="padding:4px">${eventos.map(a =>
-        `<div class="cal-agend-block" onclick="editarAgendamento(${a.id})">
-          ${fmtHora(a.data_hora)} — <strong>${a.cliente_nome}</strong> · ${a.procedimento_nome} · ${fmtMoeda(a.valor_cobrado)}
+    const blocked = dayBlocks.filter(b => b.occurrenceStart.getHours() === h);
+    html += `<div class="cal-day-row">
+      <div class="cal-hour-label">${String(h).padStart(2,'0')}:00</div>
+      <div class="cal-day-slot" onclick="_calPrefill('${dataStr}', ${h})">
+      ${blocked.map(b => `<div class="cal-blocked" onclick="event.stopPropagation()">${_calTime(b.occurrenceStart)}–${_calTime(b.occurrenceEnd)} · ${escapeHtml(b.titulo || 'Bloqueado')}</div>`).join('')}
+      ${eventos.map(a =>
+        `<div class="cal-agend-block" onclick="event.stopPropagation();editarAgendamento(${a.id})">
+          ${fmtHora(a.data_hora)} — <strong>${escapeHtml(a.cliente_nome)}</strong> · ${escapeHtml(a.procedimento_nome)} · ${fmtMoeda(a.valor_cobrado)}
           <span class="badge badge-${a.status}" style="margin-left:6px">${a.status}</span>
         </div>`
       ).join('')}</div>

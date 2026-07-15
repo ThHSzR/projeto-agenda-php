@@ -2,10 +2,15 @@
 app.log
 *.log
 
+# Configuracao local e variaveis de ambiente
+config.local.php
+.env
+
 # Arquivos de debug/teste — não subir para produção
 debug.php
 teste.php
 gerar_hash.php
+ver_log.php
 
 # Dependências
 vendor/
@@ -14,3 +19,7 @@ vendor/
 .idea/
 .vscode/
 *.DS_Store
+
+tests/
+
+bin/

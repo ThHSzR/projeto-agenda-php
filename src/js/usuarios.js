@@ -3,17 +3,11 @@ async function renderUsuarios() {
   const page  = document.getElementById('page-usuarios');
   if (!page) return;
 
-  const CARGO_BADGE = {
-    admin:    '<span style="color:#7c3aed;font-weight:600">👑 Admin</span>',
-    gerente:  '<span style="color:#0891b2;font-weight:600">🔑 Gerente</span>',
-    operador: '<span style="color:#6b7280">Operador</span>',
-  };
-
   page.innerHTML = `
     <div class="page-header">
-      <h1>⚙️ Usuários</h1>
+      <div><span class="page-eyebrow">Administração</span><h1>Usuários</h1></div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-secondary" onclick="fazerBackup()">💾 Backup do Banco</button>
+        <button class="btn btn-secondary" onclick="fazerBackup()">${uiIcon('database')} Backup do banco</button>
         <button class="btn btn-primary" onclick="abrirNovoUsuario()">+ Novo Usuário</button>
       </div>
     </div>
@@ -25,7 +19,7 @@ async function renderUsuarios() {
         <tbody>
           ${lista.map(u => `
             <tr>
-              <td><strong>${u.usuario}</strong></td>
+              <td><strong>${escapeHtml(u.usuario)}</strong></td>
               <td>
                 <select class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:12px"
                   onchange="trocarCargo(${u.id}, this.value)"
@@ -36,8 +30,8 @@ async function renderUsuarios() {
                 </select>
               </td>
               <td>
-                <button class="btn btn-info btn-sm" onclick="abrirTrocarSenha(${u.id}, '${u.usuario}')">🔑 Senha</button>
-                <button class="btn btn-danger btn-sm" onclick="excluirUsuario(${u.id}, '${u.usuario}')">🗑️</button>
+                <button class="btn btn-info btn-sm btn-icon" onclick="abrirTrocarSenha(${u.id}, decodeURIComponent('${encodeURIComponent(u.usuario)}'))" title="Trocar senha" aria-label="Trocar senha">${uiIcon('lock')}</button>
+                <button class="btn btn-danger btn-sm btn-icon" onclick="excluirUsuario(${u.id}, decodeURIComponent('${encodeURIComponent(u.usuario)}'))" title="Excluir usuário" aria-label="Excluir usuário">${uiIcon('trash')}</button>
               </td>
             </tr>`).join('')}
         </tbody>
@@ -49,7 +43,7 @@ async function renderUsuarios() {
       <div class="modal">
         <div class="modal-header">
           <h2>Novo Usuário</h2>
-          <button class="modal-close" onclick="fecharModal('modal-usuario')">✕</button>
+          <button class="modal-close" aria-label="Fechar" onclick="fecharModal('modal-usuario')"></button>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -57,7 +51,7 @@ async function renderUsuarios() {
             <input type="text" id="nou-usuario" autocomplete="off"/>
           </div>
           <div class="form-group">
-            <label>Senha * (mín. 6 caracteres)</label>
+            <label>Senha * (mín. 8 caracteres)</label>
             <input type="password" id="nou-senha" autocomplete="new-password"/>
           </div>
           <div class="form-group">
@@ -75,7 +69,7 @@ async function renderUsuarios() {
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" onclick="fecharModal('modal-usuario')">Cancelar</button>
-          <button class="btn btn-primary" onclick="salvarUsuario()">💾 Salvar</button>
+          <button class="btn btn-primary" onclick="salvarUsuario()">Salvar usuário</button>
         </div>
       </div>
     </div>
@@ -85,12 +79,12 @@ async function renderUsuarios() {
       <div class="modal">
         <div class="modal-header">
           <h2 id="modal-senha-title">Trocar Senha</h2>
-          <button class="modal-close" onclick="fecharModal('modal-senha')">✕</button>
+          <button class="modal-close" aria-label="Fechar" onclick="fecharModal('modal-senha')"></button>
         </div>
         <div class="modal-body">
           <input type="hidden" id="troca-id"/>
           <div class="form-group">
-            <label>Nova Senha * (mín. 6 caracteres)</label>
+            <label>Nova senha * (mín. 8 caracteres)</label>
             <input type="password" id="troca-senha" autocomplete="new-password"/>
           </div>
           <div class="form-group">
@@ -100,7 +94,7 @@ async function renderUsuarios() {
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" onclick="fecharModal('modal-senha')">Cancelar</button>
-          <button class="btn btn-primary" onclick="confirmarTrocarSenha()">💾 Salvar</button>
+          <button class="btn btn-primary" onclick="confirmarTrocarSenha()">Salvar nova senha</button>
         </div>
       </div>
     </div>
@@ -122,7 +116,7 @@ async function salvarUsuario() {
   const cargo   = document.getElementById('nou-cargo').value;
 
   if (!usuario)           { toast('Informe o usuário', 'error');          return; }
-  if (senha.length < 6)   { toast('Senha mínima: 6 caracteres', 'error'); return; }
+  if (senha.length < 8)   { toast('Senha mínima: 8 caracteres', 'error'); return; }
   if (senha !== senha2)   { toast('As senhas não conferem', 'error');      return; }
 
   try {
@@ -149,7 +143,7 @@ async function confirmarTrocarSenha() {
   const senha  = document.getElementById('troca-senha').value;
   const senha2 = document.getElementById('troca-senha2').value;
 
-  if (senha.length < 6) { toast('Senha mínima: 6 caracteres', 'error'); return; }
+  if (senha.length < 8) { toast('Senha mínima: 8 caracteres', 'error'); return; }
   if (senha !== senha2)  { toast('As senhas não conferem', 'error');      return; }
 
   try {
