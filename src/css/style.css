@@ -147,7 +147,6 @@ body {
     no-repeat,
     linear-gradient(145deg, var(--sidebar-start), #974780 52%, var(--sidebar-end))
     no-repeat;
-  
 }
 
 .sidebar-logo {
@@ -160,7 +159,7 @@ body {
   object-fit: contain;
   background: transparent;
   box-shadow: none;
-  filter: 
+  filter:
     saturate(2)
     drop-shadow(0 0 3px rgb(255, 255, 255))
     drop-shadow(0 0 6px rgb(255, 255, 255))
