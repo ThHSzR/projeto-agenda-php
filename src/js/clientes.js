@@ -94,7 +94,7 @@ function filtrarClientes() {
 
 // ── popular checkboxes de procedimentos ───────────────────────
 async function _popularProcs() {
-  const procs = await window.api.procedimentos.todos();
+  const procs = await window.api.procedimentos.listar();
 
   const listProc = document.getElementById('cli-proc-interesse-list');
   listProc.innerHTML = procs.map(p => `
